@@ -35,7 +35,6 @@ import {
   Box,
 } from "@mui/material";
 import {
-  Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
 } from "@mui/icons-material";
@@ -43,7 +42,6 @@ import {
 function UserManagement() {
   const { currentUser, isAdmin } = useAuth();
   const [users, setUsers] = useState([]);
-  const [editingUser, setEditingUser] = useState(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [newUser, setNewUser] = useState({
     email: "",

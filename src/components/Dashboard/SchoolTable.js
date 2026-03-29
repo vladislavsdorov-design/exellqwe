@@ -1,19 +1,6 @@
 import React from "react";
 import { TableContainer, Table, TableHead, TableRow, TableSortLabel, TableBody, Box, Pagination, Typography, TableCell } from "@mui/material";
-import { styled } from "@mui/material/styles";
 import SchoolRow from "./SchoolRow";
-
-const StyledTableCell = styled((props) => {
-  const { className, ...other } = props;
-  return <td className={className} {...other} />;
-})(({ theme }) => ({
-  fontWeight: "bold",
-  backgroundColor: theme.palette.primary.main,
-  color: theme.palette.common.white,
-  padding: '8px',
-  textAlign: 'left',
-  borderBottom: `1px solid ${theme.palette.divider}`
-}));
 
 const SchoolTable = React.memo(({ 
   paginatedSchools, 

@@ -13,8 +13,6 @@ import {
   getDoc,
   getDocs,
   collection,
-  query,
-  where,
 } from "firebase/firestore";
 
 const AuthContext = createContext();
