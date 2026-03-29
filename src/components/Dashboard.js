@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../firebase";
 import {
@@ -68,6 +69,14 @@ const drawerWidth = 240;
 
 function Dashboard() {
   const { currentUser, userData, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!currentUser) {
+      navigate("/login");
+    }
+  }, [currentUser, navigate]);
+
   const [schools, setSchools] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
@@ -236,6 +245,7 @@ function Dashboard() {
         },
         (error) => {
           console.error("Error loading schools:", error);
+          setIsInitialLoad(false);
         }
       );
     };

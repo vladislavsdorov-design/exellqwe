@@ -73,7 +73,11 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (error) {
-      console.error("Ошибка проверки пользователей:", error);
+      if (error.code === "permission-denied") {
+        console.log("Nie masz uprawnień do sprawdzania użytkowników (wymagane logowanie)");
+      } else {
+        console.error("Błąd проверки пользователей:", error);
+      }
     }
   };
 
