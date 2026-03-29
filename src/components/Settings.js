@@ -53,57 +53,94 @@ function Settings({ columns, setColumns, setVisibleColumns }) {
   };
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        Ustawienia kolumn
-      </Typography>
-      <Typography variant="body2" color="textSecondary" paragraph>
-        Wybierz które kolumny mają być widoczne w tabeli głównej
-      </Typography>
+    <Box>
+      <Paper className="table-container" elevation={0} sx={{ border: "1px solid #e0e0e0" }}>
+        <Box sx={{ p: 3, borderBottom: "1px solid #e0e0e0" }}>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            Ustawienia wyświetlania
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            Dostosuj widoczność kolumn w głównej tabeli zarządzania szkołami.
+          </Typography>
+        </Box>
 
-      {saveMessage && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {saveMessage}
-        </Alert>
-      )}
+        <Box sx={{ p: 3 }}>
+          {saveMessage && (
+            <Alert severity="success" variant="filled" sx={{ mb: 3, borderRadius: 2 }}>
+              {saveMessage}
+            </Alert>
+          )}
 
-      <FormGroup>
-        <Grid container spacing={2}>
-          {localColumns.map((column) => (
-            <Grid item xs={12} sm={6} md={4} key={column.id}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={column.visible}
-                    onChange={() => handleColumnToggle(column.id)}
-                  />
-                }
-                label={column.label}
-              />
+          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
+            Widoczne kolumny:
+          </Typography>
+          
+          <FormGroup>
+            <Grid container spacing={1}>
+              {localColumns.map((column) => (
+                <Grid item xs={12} sm={6} md={4} key={column.id}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 1,
+                      border: "1px solid",
+                      borderColor: column.visible ? "primary.light" : "#eeeeee",
+                      bgcolor: column.visible ? "rgba(25, 118, 210, 0.04)" : "transparent",
+                      borderRadius: 2,
+                      transition: "all 0.2s",
+                      "&:hover": { bgcolor: "rgba(25, 118, 210, 0.08)" }
+                    }}
+                  >
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={column.visible}
+                          onChange={() => handleColumnToggle(column.id)}
+                          size="small"
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {column.label}
+                        </Typography>
+                      }
+                      sx={{ width: '100%', m: 0 }}
+                    />
+                  </Paper>
+                </Grid>
+              ))}
             </Grid>
-          ))}
-        </Grid>
-      </FormGroup>
+          </FormGroup>
 
-      <Divider sx={{ my: 3 }} />
+          <Divider sx={{ my: 4 }} />
 
-      <Box sx={{ display: "flex", gap: 2 }}>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSaveSettings}
-        >
-          Zapisz ustawienia
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<RestoreIcon />}
-          onClick={handleResetSettings}
-        >
-          Resetuj
-        </Button>
+          <Box sx={{ display: "flex", gap: 2, justifyContent: 'flex-end' }}>
+            <Button
+              variant="outlined"
+              startIcon={<RestoreIcon />}
+              onClick={handleResetSettings}
+              sx={{ px: 3, borderRadius: 2 }}
+            >
+              Przywróć domyślne
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={handleSaveSettings}
+              sx={{ px: 4, borderRadius: 2, fontWeight: 600 }}
+            >
+              Zapisz ustawienia
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
+      
+      <Box sx={{ mt: 3 }}>
+        <Alert severity="info" variant="outlined" sx={{ borderRadius: 2 }}>
+          Zmiany zostaną zapamiętane w Twojej przeglądarce i będą automatycznie stosowane przy każdym logowaniu.
+        </Alert>
       </Box>
-    </Paper>
+    </Box>
   );
 }
 

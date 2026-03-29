@@ -22,6 +22,7 @@ import {
   Select,
   MenuItem,
   FormControl,
+  InputLabel,
   IconButton,
   Dialog,
   DialogTitle,
@@ -162,30 +163,34 @@ function UserManagement() {
   return (
     <Box>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
           {error}
         </Alert>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
+        <Alert severity="success" variant="filled" sx={{ mb: 2, borderRadius: 2 }}>
           {success}
         </Alert>
       )}
 
-      <Paper sx={{ p: 2 }}>
+      <Paper className="table-container" elevation={0} sx={{ border: "1px solid #e0e0e0" }}>
         <Box
           sx={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            mb: 2,
+            p: 3,
+            borderBottom: "1px solid #e0e0e0"
           }}
         >
-          <Typography variant="h5">Zarządzanie użytkownikami</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            Zarządzanie użytkownikami
+          </Typography>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setShowAddDialog(true)}
+            sx={{ px: 3 }}
           >
             Dodaj użytkownika
           </Button>
@@ -194,39 +199,42 @@ function UserManagement() {
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow>
-                <TableCell>Imię i nazwisko</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Rola</TableCell>
-                <TableCell>Data utworzenia</TableCell>
-                <TableCell>Akcje</TableCell>
+              <TableRow sx={{ bgcolor: "#f8f9fa" }}>
+                <TableCell sx={{ fontWeight: 700 }}>Imię i nazwisko</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Rola</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Data utworzenia</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Akcje</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {users.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow key={user.id} className="table-row-hover">
                   <TableCell>{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
-                    <FormControl size="small" sx={{ minWidth: 120 }}>
-                      <Select
-                        value={user.role}
-                        onChange={(e) =>
-                          handleRoleChange(user.id, e.target.value)
-                        }
-                        disabled={user.id === currentUser.uid}
-                      >
-                        <MenuItem value="user">Użytkownik</MenuItem>
-                        <MenuItem value="manager">Manager</MenuItem>
-                        <MenuItem value="admin">Administrator</MenuItem>
-                      </Select>
-                    </FormControl>
-                    <Chip
-                      label={getRoleLabel(user.role)}
-                      color={getRoleColor(user.role)}
-                      size="small"
-                      sx={{ ml: 1 }}
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <FormControl size="small" sx={{ minWidth: 120 }}>
+                        <Select
+                          value={user.role}
+                          onChange={(e) =>
+                            handleRoleChange(user.id, e.target.value)
+                          }
+                          disabled={user.id === currentUser.uid}
+                          sx={{ borderRadius: '20px' }}
+                        >
+                          <MenuItem value="user">Użytkownik</MenuItem>
+                          <MenuItem value="manager">Manager</MenuItem>
+                          <MenuItem value="admin">Administrator</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <Chip
+                        label={getRoleLabel(user.role)}
+                        color={getRoleColor(user.role)}
+                        size="small"
+                        sx={{ fontWeight: 600 }}
+                      />
+                    </Box>
                   </TableCell>
                   <TableCell>
                     {user.createdAt?.toDate
@@ -238,8 +246,9 @@ function UserManagement() {
                       <IconButton
                         color="error"
                         onClick={() => handleDeleteUser(user.id)}
+                        size="small"
                       >
-                        <DeleteIcon />
+                        <DeleteIcon fontSize="small" />
                       </IconButton>
                     )}
                   </TableCell>
@@ -255,9 +264,10 @@ function UserManagement() {
         onClose={() => setShowAddDialog(false)}
         maxWidth="sm"
         fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
       >
-        <DialogTitle>Dodaj nowego użytkownika</DialogTitle>
-        <DialogContent>
+        <DialogTitle sx={{ fontWeight: 700 }}>Dodaj nowego użytkownika</DialogTitle>
+        <DialogContent dividers>
           <TextField
             fullWidth
             label="Imię i nazwisko"
@@ -265,6 +275,7 @@ function UserManagement() {
             onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
             margin="normal"
             required
+            variant="outlined"
           />
           <TextField
             fullWidth
@@ -274,6 +285,7 @@ function UserManagement() {
             onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
             margin="normal"
             required
+            variant="outlined"
           />
           <TextField
             fullWidth
@@ -286,11 +298,14 @@ function UserManagement() {
             margin="normal"
             required
             helperText="Minimum 6 znaków"
+            variant="outlined"
           />
           <FormControl fullWidth margin="normal">
+            <InputLabel>Rola</InputLabel>
             <Select
               value={newUser.role}
               onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+              label="Rola"
             >
               <MenuItem value="user">Użytkownik</MenuItem>
               <MenuItem value="manager">Manager</MenuItem>
@@ -298,9 +313,11 @@ function UserManagement() {
             </Select>
           </FormControl>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowAddDialog(false)}>Anuluj</Button>
-          <Button onClick={handleAddUser} variant="contained">
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setShowAddDialog(false)} color="inherit">
+            Anuluj
+          </Button>
+          <Button onClick={handleAddUser} variant="contained" sx={{ px: 4 }}>
             Dodaj
           </Button>
         </DialogActions>

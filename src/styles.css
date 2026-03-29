@@ -1,0 +1,116 @@
+/* Layout */
+.dashboard-container {
+  padding: 24px;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+}
+
+.sidebar-drawer {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding: 24px;
+}
+
+/* Stats Cards */
+.stats-grid {
+  margin-bottom: 24px;
+}
+
+.stats-card {
+  height: 100%;
+  transition: transform 0.2s;
+}
+
+.stats-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Filters and Search */
+.filters-paper {
+  padding: 16px;
+  margin-bottom: 24px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.search-field {
+  background-color: #fcfcfc;
+}
+
+/* Forms */
+.add-school-form {
+  padding: 16px;
+  margin-bottom: 24px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+/* Table Styles */
+.table-container {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.styled-table-cell {
+  font-weight: bold !important;
+  background-color: #0c4681 !important;
+  color: #ffffff !important;
+}
+
+.table-row-hover:hover {
+  background-color: #f5f7fa !important;
+}
+
+.compact-cell {
+  padding: 8px !important;
+}
+
+/* Status Chips */
+.status-chip {
+  font-weight: 500;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+/* Navigation */
+.nav-list-item {
+  border-radius: 8px;
+  margin: 4px 8px;
+}
+
+.nav-list-item.active {
+  background-color: rgba(25, 118, 210, 0.08);
+  color: #1976d2;
+}
+
+.nav-list-item.active .MuiListItemIcon-root {
+  color: #1976d2;
+}
+
+/* Utility Classes */
+.mb-2 {
+  margin-bottom: 16px;
+}
+.mt-2 {
+  margin-top: 16px;
+}
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.text-center {
+  text-align: center;
+}
+.full-width {
+  width: 100%;
+}
