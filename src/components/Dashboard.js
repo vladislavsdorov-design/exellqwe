@@ -793,7 +793,8 @@ function Dashboard() {
         const breadcrumbs = [];
         let currentId = activeFolderId;
         while (currentId) {
-          const folder = folders.find(f => f.id === currentId);
+          const targetId = currentId; // Capture currentId for the find callback
+          const folder = folders.find(f => f.id === targetId);
           if (folder) {
             breadcrumbs.unshift(folder);
             currentId = folder.parentId;
@@ -1424,7 +1425,8 @@ function Dashboard() {
               let cur = f;
               while(cur) {
                 path.unshift(cur.name);
-                cur = folders.find(p => p.id === cur.parentId);
+                const targetParentId = cur.parentId; // Capture parentId for find
+                cur = folders.find(p => p.id === targetParentId);
               }
               
               return (
