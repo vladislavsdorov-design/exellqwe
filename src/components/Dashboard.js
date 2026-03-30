@@ -67,7 +67,6 @@ import AddSchoolForm from "./Dashboard/AddSchoolForm";
 import FilterBar from "./Dashboard/FilterBar";
 import SchoolTable from "./Dashboard/SchoolTable";
 import SchoolChat from "./Dashboard/SchoolChat"; // Импортируем чат
-import { debounce } from "lodash";
 
 const drawerWidth = 240;
 
@@ -83,10 +82,20 @@ function Dashboard() {
 
   const [schools, setSchools] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     progress: "",
     priority: "",
   });
+
+  // Дебаунс поиска: фильтрация сработает только через 300мс после остановки ввода
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const [columns, setColumns] = useState([]);
   const [visibleColumns, setVisibleColumns] = useState([]);
   const [sortBy, setSortBy] = useState("lastUpdated");
@@ -122,12 +131,12 @@ function Dashboard() {
   const filteredAndSortedData = useMemo(() => {
     let filtered = [...schools];
 
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
+    if (debouncedSearchTerm && typeof debouncedSearchTerm === "string") {
+      const term = debouncedSearchTerm.toLowerCase();
       filtered = filtered.filter((school) =>
-        school.name?.toLowerCase().includes(term) ||
-        school.email?.toLowerCase().includes(term) ||
-        school.phone?.toLowerCase().includes(term)
+        (school.name && typeof school.name === "string" && school.name.toLowerCase().includes(term)) ||
+        (school.email && typeof school.email === "string" && school.email.toLowerCase().includes(term)) ||
+        (school.phone && typeof school.phone === "string" && school.phone.toLowerCase().includes(term))
       );
     }
 
@@ -182,17 +191,29 @@ function Dashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return {
-      total: filteredAndSortedData.length,
-      noAction: filteredAndSortedData.filter((s) => s.progress === "BRAK AKCJI").length,
-      offerSent: filteredAndSortedData.filter((s) => s.progress === "OFERTA WYSŁANA").length,
-      inContact: filteredAndSortedData.filter((s) => s.progress === "W KONTAKCIE").length,
-      updatedToday: filteredAndSortedData.filter((s) => {
-        if (!s.lastUpdated) return false;
+    let noAction = 0;
+    let offerSent = 0;
+    let inContact = 0;
+    let updatedToday = 0;
+
+    filteredAndSortedData.forEach((s) => {
+      if (s.progress === "BRAK AKCJI") noAction++;
+      if (s.progress === "OFERTA WYSŁANA") offerSent++;
+      if (s.progress === "W KONTAKCIE") inContact++;
+      
+      if (s.lastUpdated) {
         const updateDate = s.lastUpdated.toDate();
         updateDate.setHours(0, 0, 0, 0);
-        return updateDate.getTime() === today.getTime();
-      }).length,
+        if (updateDate.getTime() === today.getTime()) updatedToday++;
+      }
+    });
+
+    return {
+      total: filteredAndSortedData.length,
+      noAction,
+      offerSent,
+      inContact,
+      updatedToday,
     };
   }, [filteredAndSortedData]);
 
@@ -367,14 +388,9 @@ function Dashboard() {
     [currentUser, userData, schools]
   );
 
-  const debouncedSearch = useMemo(
-    () => debounce((value) => setSearchTerm(value), 300),
-    []
-  );
-
   const handleSearchChange = useCallback((e) => {
-    debouncedSearch(e.target.value);
-  }, [debouncedSearch]);
+    setSearchTerm(e.target.value);
+  }, []);
 
   // Загрузка истории для конкретной школы при открытии напоминаний
   useEffect(() => {
@@ -575,6 +591,7 @@ function Dashboard() {
             <FilterBar
               filters={filters}
               setFilters={setFilters}
+              searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
               handleSearchChange={handleSearchChange}
               exportToExcel={exportToExcel}

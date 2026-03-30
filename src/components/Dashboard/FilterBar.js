@@ -2,7 +2,7 @@ import React from "react";
 import { Paper, Grid, TextField, FormControl, InputLabel, Select, MenuItem, Button } from "@mui/material";
 import { Download as DownloadIcon } from "@mui/icons-material";
 
-const FilterBar = React.memo(({ filters, setFilters, setSearchTerm, handleSearchChange, exportToExcel }) => {
+const FilterBar = React.memo(({ filters, setFilters, searchTerm, setSearchTerm, handleSearchChange, exportToExcel }) => {
   return (
     <Paper
       className="filters-paper"
@@ -15,6 +15,7 @@ const FilterBar = React.memo(({ filters, setFilters, setSearchTerm, handleSearch
             fullWidth
             label="Szukaj школы"
             variant="outlined"
+            value={searchTerm || ""}
             onChange={handleSearchChange}
             size="small"
             placeholder="Wpisz nazwę школы..."
