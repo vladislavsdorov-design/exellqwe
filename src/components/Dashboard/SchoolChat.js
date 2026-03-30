@@ -27,7 +27,6 @@ import {
   orderBy,
   onSnapshot,
   serverTimestamp,
-  updateDoc,
   doc,
 } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
