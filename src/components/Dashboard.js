@@ -56,6 +56,8 @@ import {
   Settings as SettingsIcon,
   Notifications as NotificationsIcon,
   Logout as LogoutIcon,
+  NotificationsActive as NotificationsActiveIcon,
+  CheckCircle as CheckCircleIcon,
 } from "@mui/icons-material";
 import UserManagement from "./UserManagement";
 import Settings from "./Settings";
@@ -91,6 +93,8 @@ function Dashboard() {
   const [sortOrder, setSortOrder] = useState("desc");
   const [editingSchool, setEditingSchool] = useState(null);
   const [chatSchool, setChatSchool] = useState(null); // Добавляем состояние для чата
+  const [reminderSchool, setReminderSchool] = useState(null); // Состояние для диалога напоминаний
+  const [reminderHistory, setReminderHistory] = useState([]); // История для диалога напоминаний
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [notificationsCount, setNotificationsCount] = useState(0);
@@ -140,6 +144,22 @@ function Dashboard() {
     }
 
     filtered.sort((a, b) => {
+      // Приоритет №1: Активные напоминания (дата наступила)
+      const now = new Date();
+      const aReminderActive = a.reminderDate && a.reminderText && new Date(a.reminderDate) <= now;
+      const bReminderActive = b.reminderDate && b.reminderText && new Date(b.reminderDate) <= now;
+
+      if (aReminderActive && !bReminderActive) return -1;
+      if (!aReminderActive && bReminderActive) return 1;
+
+      // Приоритет №2: Наличие любого напоминания (дата в будущем)
+      const aHasReminder = a.reminderDate && a.reminderText;
+      const bHasReminder = b.reminderDate && b.reminderText;
+
+      if (aHasReminder && !bHasReminder) return -1;
+      if (!aHasReminder && bHasReminder) return 1;
+
+      // Обычная сортировка по выбранной колонке
       let aVal = a[sortBy];
       let bVal = b[sortBy];
 
@@ -309,19 +329,43 @@ function Dashboard() {
     });
   }, []);
 
-  const handleUpdate = useCallback(async (id, field, value) => {
-    try {
-      const schoolRef = doc(db, "schools", id);
-      await updateDoc(schoolRef, {
-        [field]: value,
-        lastUpdated: serverTimestamp(),
-        lastUpdatedBy: userData?.name || currentUser?.email,
-      });
-      setSnackbar({ open: true, message: "Zapisano!", severity: "success" });
-    } catch (error) {
-      setSnackbar({ open: true, message: "Błąd!", severity: "error" });
-    }
-  }, [userData, currentUser]);
+  const handleUpdate = useCallback(
+    async (schoolId, field, value) => {
+      try {
+        const schoolRef = doc(db, "schools", schoolId);
+        const oldValue = schools.find(s => s.id === schoolId)?.[field] || "brak";
+        
+        await updateDoc(schoolRef, {
+          [field]: value,
+          lastUpdated: serverTimestamp(),
+          lastUpdatedBy: userData?.name || currentUser?.email,
+        });
+
+        // Добавляем запись в историю
+         await addDoc(collection(db, "actions_log"), {
+           schoolId,
+           userId: currentUser?.uid,
+           user: userData?.name || currentUser?.email,
+           action: "Aktualizacja",
+           details: `Zmieniono ${field}: "${oldValue}" -> "${value}"`,
+           timestamp: serverTimestamp(),
+         });
+
+        setSnackbar({
+          open: true,
+          message: "Zaktualizowano pomyślnie!",
+          severity: "success",
+        });
+      } catch (error) {
+        setSnackbar({
+          open: true,
+          message: "Błąd aktualizacji!",
+          severity: "error",
+        });
+      }
+    },
+    [currentUser, userData, schools]
+  );
 
   const debouncedSearch = useMemo(
     () => debounce((value) => setSearchTerm(value), 300),
@@ -331,6 +375,31 @@ function Dashboard() {
   const handleSearchChange = useCallback((e) => {
     debouncedSearch(e.target.value);
   }, [debouncedSearch]);
+
+  // Загрузка истории для конкретной школы при открытии напоминаний
+  useEffect(() => {
+    if (!reminderSchool?.id) {
+      setReminderHistory([]);
+      return;
+    }
+
+    const historyQuery = query(
+       collection(db, "actions_log"),
+       where("schoolId", "==", reminderSchool.id),
+       orderBy("timestamp", "desc"),
+       limit(5)
+     );
+
+    const unsubscribe = onSnapshot(historyQuery, (snapshot) => {
+      const history = [];
+      snapshot.forEach((doc) => {
+        history.push({ id: doc.id, ...doc.data() });
+      });
+      setReminderHistory(history);
+    });
+
+    return () => unsubscribe();
+  }, [reminderSchool?.id]);
 
   const handleAddSchool = async (e) => {
     e.preventDefault();
@@ -366,15 +435,56 @@ function Dashboard() {
     setLoading(true);
     try {
       const schoolRef = doc(db, "schools", editingSchool.id);
+      const originalSchool = schools.find((s) => s.id === editingSchool.id);
+
       await updateDoc(schoolRef, {
         ...editingSchool,
         lastUpdated: serverTimestamp(),
         lastUpdatedBy: userData?.name || currentUser?.email,
       });
+
+      // Логируем изменения
+      let changes = [];
+      if (originalSchool) {
+        if (originalSchool.name !== editingSchool.name)
+          changes.push(`Nazwa: "${originalSchool.name}" -> "${editingSchool.name}"`);
+        if (originalSchool.email !== editingSchool.email)
+          changes.push(`Email: "${originalSchool.email}" -> "${editingSchool.email}"`);
+        if (originalSchool.phone !== editingSchool.phone)
+          changes.push(`Tel: "${originalSchool.phone}" -> "${editingSchool.phone}"`);
+        if (originalSchool.progress !== editingSchool.progress)
+          changes.push(
+            `Status: "${originalSchool.progress}" -> "${editingSchool.progress}"`
+          );
+        if (originalSchool.priority !== editingSchool.priority)
+          changes.push(
+            `Priorytet: "${originalSchool.priority}" -> "${editingSchool.priority}"`
+          );
+      }
+
+      if (changes.length > 0) {
+         await addDoc(collection(db, "actions_log"), {
+           schoolId: editingSchool.id,
+           userId: currentUser?.uid,
+           user: userData?.name || currentUser?.email,
+           action: "Edycja",
+           details: changes.join(", "),
+           timestamp: serverTimestamp(),
+         });
+       }
+
       setEditingSchool(null);
-      setSnackbar({ open: true, message: "Zaktualizowano!", severity: "success" });
+      setSnackbar({
+        open: true,
+        message: "Dane szkoły zaktualizowane!",
+        severity: "success",
+      });
     } catch (error) {
-      setSnackbar({ open: true, message: "Błąd!", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Błąd podczas zapisywania!",
+        severity: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -395,20 +505,19 @@ function Dashboard() {
     try {
       const historyQuery = query(
         collection(db, "actions_log"),
+        where("schoolId", "==", schoolId),
         orderBy("timestamp", "desc"),
-        limit(50)
+        limit(20)
       );
       const snapshot = await getDocs(historyQuery);
       const history = [];
       snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.schoolId === schoolId) {
-          history.push({ id: doc.id, ...data });
-        }
+        history.push({ id: doc.id, ...doc.data() });
       });
-      setHistoryData(history.slice(0, 20));
+      setHistoryData(history);
       setShowHistory(true);
     } catch (error) {
+      console.error("History fetch error:", error);
       setSnackbar({ open: true, message: "Błąd historii!", severity: "error" });
     }
   }, []);
@@ -485,7 +594,8 @@ function Dashboard() {
               page={page}
               totalPages={Math.ceil(filteredAndSortedData.length / rowsPerPage)}
               handlePageChange={handlePageChange}
-              setChatSchool={setChatSchool} // Передаем пропс
+              setChatSchool={setChatSchool}
+              setReminderSchool={setReminderSchool} // Передаем пропс
             />
           </Box>
         );
@@ -597,7 +707,7 @@ function Dashboard() {
             position: "fixed",
             right: 24,
             bottom: 80,
-            width: 350,
+            width: 800,
             zIndex: 1300,
           }}
         >
@@ -743,7 +853,7 @@ function Dashboard() {
             </Table>
           ) : (
             <Box sx={{ py: 4, textAlign: "center" }}>
-              <Typography color="textSecondary">Brak historii dla tej szkoły.</Typography>
+              <Typography color="textSecondary">Brak historii для tej szkoły.</Typography>
             </Box>
           )}
         </DialogContent>
@@ -751,6 +861,135 @@ function Dashboard() {
           <Button onClick={() => setShowHistory(false)} variant="contained">
             Zamknij
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог напоминаний */}
+      <Dialog open={!!reminderSchool} onClose={() => setReminderSchool(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1 }}>
+          <NotificationsActiveIcon color="primary" />
+          Przypomnienie: {reminderSchool?.name}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={3}>
+            <Grid xs={12} md={7}>
+              <Box sx={{ py: 1 }}>
+                <TextField
+                  fullWidth
+                  label="Tekst przypomnienia"
+                  multiline
+                  rows={4}
+                  value={reminderSchool?.reminderText || ""}
+                  onChange={(e) => setReminderSchool({ ...reminderSchool, reminderText: e.target.value })}
+                  sx={{ mb: 3 }}
+                />
+                <TextField
+                  fullWidth
+                  label="Data i czas"
+                  type="datetime-local"
+                  value={reminderSchool?.reminderDate || ""}
+                  onChange={(e) => setReminderSchool({ ...reminderSchool, reminderDate: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Box>
+            </Grid>
+            <Grid xs={12} md={5}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: "textSecondary" }}>
+                Ostatnia historia
+              </Typography>
+              <Box sx={{ maxHeight: 200, overflowY: "auto" }}>
+                {reminderHistory.length > 0 ? (
+                  reminderHistory.map((log) => (
+                    <Box key={log.id} sx={{ mb: 1.5, p: 1, bgcolor: "#f8f9fa", borderRadius: 1, borderLeft: "3px solid #1976d2" }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: "block" }}>
+                        {log.user} • {formatDate(log.timestamp)}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontSize: "0.75rem" }}>
+                        {log.details}
+                      </Typography>
+                    </Box>
+                  ))
+                ) : (
+                  <Typography variant="caption" color="textSecondary">Brak historii.</Typography>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, justifyContent: "space-between" }}>
+          <Button 
+            startIcon={<CheckCircleIcon />} 
+            color="success" 
+            variant="outlined"
+            onClick={async () => {
+              try {
+                const schoolRef = doc(db, "schools", reminderSchool.id);
+                const oldText = reminderSchool.reminderText;
+                
+                await updateDoc(schoolRef, {
+                  reminderText: "",
+                  reminderDate: "",
+                  lastUpdated: serverTimestamp(),
+                  lastUpdatedBy: userData?.name || currentUser.email,
+                });
+
+                // Логируем выполнение в историю
+                 await addDoc(collection(db, "actions_log"), {
+                   schoolId: reminderSchool.id,
+                   userId: currentUser.uid,
+                   user: userData?.name || currentUser.email,
+                   action: "Wykonano",
+                   details: `Zakończono zadanie: "${oldText}"`,
+                   timestamp: serverTimestamp(),
+                 });
+
+                setReminderSchool(null);
+                setSnackbar({ open: true, message: "Zadanie oznaczone jako wykonane!", severity: "success" });
+              } catch (error) {
+                console.error("Error in Wykonano button:", error);
+                setSnackbar({ open: true, message: `Błąd zapisu! ${error.message}`, severity: "error" });
+              }
+            }}
+          >
+            Wykonano
+          </Button>
+          <Box>
+            <Button onClick={() => setReminderSchool(null)} sx={{ mr: 1 }}>Anuluj</Button>
+            <Button 
+              onClick={async () => {
+                try {
+                  if (!reminderSchool?.id) throw new Error("Missing school ID");
+                  
+                  const schoolRef = doc(db, "schools", reminderSchool.id);
+                  await updateDoc(schoolRef, {
+                    reminderText: reminderSchool.reminderText || "",
+                    reminderDate: reminderSchool.reminderDate || "",
+                    lastUpdated: serverTimestamp(),
+                    lastUpdatedBy: userData?.name || currentUser?.email,
+                  });
+
+                  // Логируем в историю
+                   await addDoc(collection(db, "actions_log"), {
+                     schoolId: reminderSchool.id,
+                     userId: currentUser?.uid,
+                     user: userData?.name || currentUser?.email,
+                     action: "Przypomnienie",
+                     details: `Ustawiono przypomnienie на ${reminderSchool.reminderDate || "brak daty"}`,
+                     timestamp: serverTimestamp(),
+                   });
+
+                  setReminderSchool(null);
+                  setSnackbar({ open: true, message: "Przypomnienie zapisane!", severity: "success" });
+                } catch (error) {
+                  console.error("Error in Save Przypomnienie:", error);
+                  setSnackbar({ open: true, message: `Błąd zapisu! ${error.message}`, severity: "error" });
+                }
+              }} 
+              variant="contained"
+            >
+              Zapisz
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </Box>

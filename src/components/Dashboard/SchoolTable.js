@@ -18,7 +18,8 @@ const SchoolTable = React.memo(
     page,
     totalPages,
     handlePageChange,
-    setChatSchool, // Добавляем пропс
+    setChatSchool,
+    setReminderSchool, // Добавляем пропс
   }) => {
     return (
       <TableContainer
@@ -79,7 +80,8 @@ const SchoolTable = React.memo(
                 handleDeleteSchool={handleDeleteSchool}
                 isAdmin={isAdmin}
                 formatDate={formatDate}
-                setChatSchool={setChatSchool} // Передаем дальше
+                setChatSchool={setChatSchool}
+                setReminderSchool={setReminderSchool} // Передаем дальше
               />
             ))}
           {paginatedSchools.length === 0 && (

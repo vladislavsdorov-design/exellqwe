@@ -18,6 +18,7 @@ import {
   History as HistoryIcon,
   Delete as DeleteIcon,
   Chat as ChatIcon,
+  NotificationsActive as ReminderIcon,
 } from "@mui/icons-material";
 import { db } from "../../firebase";
 import {
@@ -39,7 +40,8 @@ const SchoolRow = React.memo(
     handleDeleteSchool,
     isAdmin,
     formatDate,
-    setChatSchool, // Добавляем пропс для открытия чата
+    setChatSchool,
+    setReminderSchool, // Добавляем пропс для открытия напоминаний
   }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [messageCount, setMessageCount] = useState(0);
@@ -56,9 +58,11 @@ const SchoolRow = React.memo(
         limit(50)
       );
 
+      let isMounted = true;
       const unsubscribe = onSnapshot(
         q,
         (snapshot) => {
+          if (!isMounted) return;
           const totalCount = snapshot.size;
           setMessageCount(totalCount);
           
@@ -75,6 +79,7 @@ const SchoolRow = React.memo(
           setHasNewMessages(unread > 0);
         },
         (error) => {
+          if (!isMounted) return;
           if (error.code === "failed-precondition") {
             console.warn("Wymagany индекс для czatu: ", school.name);
           } else {
@@ -83,8 +88,11 @@ const SchoolRow = React.memo(
         }
       );
 
-      return () => unsubscribe();
-    }, [school.id, school.name]);
+      return () => {
+        isMounted = false;
+        unsubscribe();
+      };
+    }, [school.id]); // Уменьшаем количество зависимостей, чтобы слушатель не перезапускался слишком часто
 
     const handleOpenChat = () => {
       // При открытии чата помечаем все сообщения как прочитанные (сохраняем текущее время)
@@ -96,6 +104,15 @@ const SchoolRow = React.memo(
       setHasNewMessages(false);
       setChatSchool(school);
     };
+
+    const isReminderActive = () => {
+      if (!school.reminderDate || !school.reminderText) return false;
+      const now = new Date();
+      const rDate = new Date(school.reminderDate);
+      return now >= rDate;
+    };
+
+    const hasReminder = school.reminderDate && school.reminderText;
 
     return (
       <TableRow key={school.id} className="table-row-hover">
@@ -301,6 +318,23 @@ const SchoolRow = React.memo(
                 size="small"
               >
                 <HistoryIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={hasReminder ? "Zmień przypomnienie" : "Dodaj przypomnienie"}>
+              <IconButton
+                onClick={() => setReminderSchool(school)}
+                size="small"
+                sx={{
+                  color: isReminderActive() ? "#fbc02d" : hasReminder ? "#1976d2" : "inherit",
+                  animation: isReminderActive() ? "glow 1.5s infinite" : "none",
+                  "@keyframes glow": {
+                    "0%": { filter: "drop-shadow(0 0 2px #fbc02d)" },
+                    "50%": { filter: "drop-shadow(0 0 8px #fbc02d)" },
+                    "100%": { filter: "drop-shadow(0 0 2px #fbc02d)" },
+                  }
+                }}
+              >
+                <ReminderIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             {isAdmin && (
