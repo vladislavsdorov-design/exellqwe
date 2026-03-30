@@ -84,7 +84,7 @@ const SchoolRow = React.memo(
       );
 
       return () => unsubscribe();
-    }, [school?.id]);
+    }, [school.id, school.name]);
 
     const handleOpenChat = () => {
       // При открытии чата помечаем все сообщения как прочитанные (сохраняем текущее время)
