@@ -70,7 +70,6 @@ import {
   ChevronRight as ChevronRightIcon,
   ExpandMore as ExpandMoreIcon,
   MoreVert as MoreVertIcon,
-  MoveToInbox as MoveIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Storage as DatabaseIcon,
