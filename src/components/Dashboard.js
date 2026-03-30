@@ -151,6 +151,10 @@ function Dashboard() {
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [moveSchoolDialog, setMoveSchoolDialog] = useState(null); // school to move
 
+  useEffect(() => {
+    localStorage.setItem("activeFolderId", JSON.stringify(activeFolderId));
+  }, [activeFolderId]);
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
