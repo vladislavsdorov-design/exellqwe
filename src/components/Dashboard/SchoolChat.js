@@ -10,8 +10,6 @@ import {
   Paper,
   Avatar,
   CircularProgress,
-  Grid,
-  Button,
 } from "@mui/material";
 import {
   Send as SendIcon,
@@ -41,7 +39,6 @@ const SchoolChat = ({ school, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [reminderText, setReminderText] = useState(school?.reminderText || "");
   const [reminderDate, setReminderDate] = useState(school?.reminderDate || "");
-  const [isUpdatingReminder, setIsUpdatingReminder] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = (behavior = "smooth") => {
@@ -183,24 +180,6 @@ const SchoolChat = ({ school, onClose }) => {
     } catch (error) {
       console.error("Error sending message:", error);
       setNewMessage(messageToSend); // Возвращаем текст при ошибке
-    }
-  };
-
-  const handleUpdateReminder = async () => {
-    if (!school?.id) return;
-    setIsUpdatingReminder(true);
-    try {
-      const schoolRef = doc(db, "schools", school.id);
-      await updateDoc(schoolRef, {
-        reminderText,
-        reminderDate,
-        lastUpdated: serverTimestamp(),
-        lastUpdatedBy: userData?.name || currentUser?.email,
-      });
-    } catch (error) {
-      console.error("Error updating reminder:", error);
-    } finally {
-      setIsUpdatingReminder(false);
     }
   };
 
