@@ -697,23 +697,41 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import CssBaseline from "@mui/material/CssBaseline";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { AuthProvider } from "./contexts/AuthContext";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
 
+const theme = createTheme({
+  typography: {
+    fontFamily:
+      '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, "Noto Sans", sans-serif',
+    h1: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+    h2: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+    h3: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+    h4: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+    h5: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+    h6: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+  },
+});
+
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/" element={<Navigate to="/dashboard" />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/" element={<Navigate to="/dashboard" />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

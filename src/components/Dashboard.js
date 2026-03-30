@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../firebase";
@@ -55,6 +55,7 @@ import {
   Breadcrumbs,
   Link,
   Divider,
+  LinearProgress,
 } from "@mui/material";
 import {
   Dashboard as DashboardIcon,
@@ -89,6 +90,7 @@ const drawerWidth = 240;
 function Dashboard() {
   const { currentUser, userData, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!currentUser) {
@@ -168,6 +170,18 @@ function Dashboard() {
   const [page, setPage] = useState(1);
   const [rowsPerPage] = useState(20);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const hasCheckedNotificationsRef = useRef(false);
+  const switchView = useCallback(
+    (nextTab, nextFolderId) => {
+      startTransition(() => {
+        setActiveTab(nextTab);
+        if (typeof nextFolderId !== "undefined") {
+          setActiveFolderId(nextFolderId);
+        }
+      });
+    },
+    [startTransition]
+  );
 
   // Мемоизация фильтрованных данных
   const filteredAndSortedData = useMemo(() => {
@@ -206,9 +220,9 @@ function Dashboard() {
       );
     }
 
+    const now = new Date();
     filtered.sort((a, b) => {
       // Приоритет №1: Активные напоминания (дата наступила)
-      const now = new Date();
       const aReminderActive = a.reminderDate && a.reminderText && new Date(a.reminderDate) <= now;
       const bReminderActive = b.reminderDate && b.reminderText && new Date(b.reminderDate) <= now;
 
@@ -289,7 +303,8 @@ function Dashboard() {
           school.progress !== "OFERTA WYSŁANA";
       });
 
-      for (const school of inactiveSchools) {
+      for (let i = 0; i < inactiveSchools.length; i++) {
+        const school = inactiveSchools[i];
         const daysInactive = Math.floor(
           (new Date() - school.lastUpdated.toDate()) / (1000 * 60 * 60 * 24)
         );
@@ -316,6 +331,9 @@ function Dashboard() {
             read: false,
           });
         }
+        if (i % 10 === 9) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
       }
     },
     [currentUser]
@@ -325,6 +343,7 @@ function Dashboard() {
     let unsubscribe;
 
     const loadData = () => {
+      hasCheckedNotificationsRef.current = false;
       const q = query(collection(db, "schools"), orderBy("lastUpdated", "desc"));
 
       unsubscribe = onSnapshot(
@@ -336,8 +355,9 @@ function Dashboard() {
           });
           setSchools(schoolsData);
 
-          if (schoolsData.length > 0) {
-            checkAndCreateNotifications(schoolsData);
+          if (!hasCheckedNotificationsRef.current && schoolsData.length > 0) {
+            hasCheckedNotificationsRef.current = true;
+            await checkAndCreateNotifications(schoolsData);
           }
           setIsInitialLoad(false);
         },
@@ -706,77 +726,99 @@ function Dashboard() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // Helper to render folder tree
-  const renderFolderTree = (parentId = null, level = 0) => {
-    const currentFolders = folders.filter(f => f.parentId === parentId);
-    
-    return currentFolders.map(folder => {
-      const isExpanded = expandedFolders[folder.id];
-      const isActive = activeFolderId === folder.id;
-      
-      return (
-        <React.Fragment key={folder.id}>
-          <ListItem
-            disablePadding
-            sx={{ pl: level * 2 }}
-            className={`nav-list-item folder-item ${isActive ? "active" : ""}`}
-          >
-            <ListItemButton
-              onClick={() => {
-                setActiveFolderId(folder.id);
-                setActiveTab(0);
-              }}
-              sx={{ py: 0.5, borderRadius: 1 }}
+  const foldersByParent = useMemo(() => {
+    const map = new Map();
+    for (const f of folders) {
+      const key = f.parentId || "__root__";
+      const arr = map.get(key);
+      if (arr) {
+        arr.push(f);
+      } else {
+        map.set(key, [f]);
+      }
+    }
+    return map;
+  }, [folders]);
+
+  const renderFolderTree = useCallback(
+    (parentId = null, level = 0) => {
+      const currentFolders = foldersByParent.get(parentId || "__root__") || [];
+
+      return currentFolders.map((folder) => {
+        const isExpanded = expandedFolders[folder.id];
+        const isActive = activeFolderId === folder.id;
+
+        return (
+          <React.Fragment key={folder.id}>
+            <ListItem
+              disablePadding
+              sx={{ pl: level * 2 }}
+              className={`nav-list-item folder-item ${isActive ? "active" : ""}`}
             >
-              <ListItemIcon sx={{ minWidth: 32 }}>
-                {folder.type === "database" ? (
-                  <DatabaseIcon fontSize="small" color="primary" />
-                ) : isExpanded ? (
-                  <FolderOpenIcon fontSize="small" />
-                ) : (
-                  <FolderIcon fontSize="small" />
-                )}
-              </ListItemIcon>
-              <ListItemText 
-                primary={folder.name} 
-                primaryTypographyProps={{ 
-                  fontSize: "0.875rem", 
-                  noWrap: true,
-                  fontWeight: folder.type === "database" ? 600 : 400
+              <ListItemButton
+                onClick={() => {
+                  switchView(0, folder.id);
                 }}
-              />
-              {folder.type !== "database" && (
-                <IconButton 
-                  size="small" 
+                sx={{ py: 0.5, borderRadius: 1 }}
+              >
+                <ListItemIcon sx={{ minWidth: 32 }}>
+                  {folder.type === "database" ? (
+                    <DatabaseIcon fontSize="small" color="primary" />
+                  ) : isExpanded ? (
+                    <FolderOpenIcon fontSize="small" />
+                  ) : (
+                    <FolderIcon fontSize="small" />
+                  )}
+                </ListItemIcon>
+                <ListItemText
+                  primary={folder.name}
+                  primaryTypographyProps={{
+                    fontSize: "0.875rem",
+                    noWrap: true,
+                    fontWeight: folder.type === "database" ? 600 : 400,
+                  }}
+                />
+                {folder.type !== "database" && (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedFolders((prev) => ({
+                        ...prev,
+                        [folder.id]: !prev[folder.id],
+                      }));
+                    }}
+                  >
+                    {isExpanded ? (
+                      <ExpandMoreIcon fontSize="small" />
+                    ) : (
+                      <ChevronRightIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                )}
+                <IconButton
+                  size="small"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setExpandedFolders(prev => ({ ...prev, [folder.id]: !prev[folder.id] }));
+                    setSelectedFolder(folder);
+                    setFolderMenuAnchor(e.currentTarget);
                   }}
                 >
-                  {isExpanded ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+                  <MoreVertIcon fontSize="small" />
                 </IconButton>
-              )}
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedFolder(folder);
-                  setFolderMenuAnchor(e.currentTarget);
-                }}
-              >
-                <MoreVertIcon fontSize="small" />
-              </IconButton>
-            </ListItemButton>
-          </ListItem>
-          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding>
-              {renderFolderTree(folder.id, level + 1)}
-            </List>
-          </Collapse>
-        </React.Fragment>
-      );
-    });
-  };
+              </ListItemButton>
+            </ListItem>
+            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                {renderFolderTree(folder.id, level + 1)}
+              </List>
+            </Collapse>
+          </React.Fragment>
+        );
+      });
+    },
+    [activeFolderId, expandedFolders, foldersByParent, switchView]
+  );
 
   if (isInitialLoad && schools.length === 0) {
     return (
@@ -816,7 +858,7 @@ function Dashboard() {
                   variant="body2"
                   underline="hover"
                   color={activeFolderId === null ? "primary" : "inherit"}
-                  onClick={() => setActiveFolderId(null)}
+                  onClick={() => switchView(0, null)}
                   sx={{ fontWeight: activeFolderId === null ? 700 : 400 }}
                 >
                   Baza główna
@@ -828,7 +870,7 @@ function Dashboard() {
                     variant="body2"
                     underline="hover"
                     color={index === breadcrumbs.length - 1 ? "primary" : "inherit"}
-                    onClick={() => setActiveFolderId(b.id)}
+                    onClick={() => switchView(0, b.id)}
                     sx={{ fontWeight: index === breadcrumbs.length - 1 ? 700 : 400 }}
                   >
                     {b.name}
@@ -969,6 +1011,7 @@ function Dashboard() {
             </Button>
           </Box>
         </Toolbar>
+        {isPending && <LinearProgress />}
       </AppBar>
 
       <Drawer
@@ -1003,8 +1046,11 @@ function Dashboard() {
                 >
                   <ListItemButton
                     onClick={() => {
-                      setActiveTab(item.tab);
-                      if (item.tab === 0) setActiveFolderId(null);
+                      if (item.tab === 0) {
+                        switchView(0, null);
+                      } else {
+                        switchView(item.tab);
+                      }
                     }}
                     sx={{ borderRadius: 1 }}
                   >
@@ -1041,12 +1087,21 @@ function Dashboard() {
 
       <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
         <Toolbar />
+        {isPending && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <CircularProgress size={18} />
+            <Typography variant="caption" color="textSecondary">
+              Ładowanie...
+            </Typography>
+          </Box>
+        )}
         {renderContent()}
       </Box>
 
       {/* Chat Sidebar/Overlay */}
       {chatSchool && (
         <Box
+          className="fade-in-up"
           sx={{
             position: "fixed",
             right: 24,

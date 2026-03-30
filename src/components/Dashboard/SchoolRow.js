@@ -117,7 +117,7 @@ const SchoolRow = React.memo(
     const hasReminder = school.reminderDate && school.reminderText;
 
     return (
-      <TableRow key={school.id} className="table-row-hover">
+      <TableRow key={school.id} className="table-row-hover fade-in-up">
         {visibleColumns.map((column) => {
           if (column.id === "contact") {
             return (

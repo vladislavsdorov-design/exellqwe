@@ -28,6 +28,7 @@ import {
   onSnapshot,
   serverTimestamp,
   doc,
+  limit,
 } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -53,7 +54,8 @@ const SchoolChat = ({ school, onClose }) => {
     const q = query(
       messagesRef,
       where("schoolId", "==", school.id),
-      orderBy("createdAt", "asc")
+      orderBy("createdAt", "desc"),
+      limit(200)
     );
 
     let isMounted = true;
@@ -70,6 +72,7 @@ const SchoolChat = ({ school, onClose }) => {
           snapshot.forEach((doc) => {
             serverMsgs.push({ id: doc.id, ...doc.data() });
           });
+          serverMsgs.reverse();
 
           // Синхронизируем стейт: убираем оптимистичные сообщения, которые уже пришли с сервера
           setMessages(prev => {
@@ -338,6 +341,7 @@ const SchoolChat = ({ school, onClose }) => {
                       p: 0,
                       mb: 1.5,
                     }}
+                    className="fade-in-up"
                   >
                     <Box
                       sx={{
