@@ -20,6 +20,7 @@ const SchoolTable = React.memo(
     handlePageChange,
     setChatSchool,
     setReminderSchool, // Добавляем пропс
+    setMoveSchoolDialog, // Добавляем пропс для перемещения
   }) => {
     return (
       <TableContainer
@@ -82,6 +83,7 @@ const SchoolTable = React.memo(
                 formatDate={formatDate}
                 setChatSchool={setChatSchool}
                 setReminderSchool={setReminderSchool} // Передаем дальше
+                setMoveSchoolDialog={setMoveSchoolDialog} // Передаем дальше
               />
             ))}
           {paginatedSchools.length === 0 && (

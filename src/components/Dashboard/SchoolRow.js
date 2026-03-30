@@ -19,6 +19,7 @@ import {
   Delete as DeleteIcon,
   Chat as ChatIcon,
   NotificationsActive as ReminderIcon,
+  DriveFileMove as MoveIcon,
 } from "@mui/icons-material";
 import { db } from "../../firebase";
 import {
@@ -41,7 +42,8 @@ const SchoolRow = React.memo(
     isAdmin,
     formatDate,
     setChatSchool,
-    setReminderSchool, // Добавляем пропс для открытия напоминаний
+    setReminderSchool,
+    setMoveSchoolDialog, // Добавляем пропс
   }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [messageCount, setMessageCount] = useState(0);
@@ -337,17 +339,24 @@ const SchoolRow = React.memo(
                 <ReminderIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            {isAdmin && (
-              <Tooltip title="Usuń">
-                <IconButton
-                  onClick={() => handleDeleteSchool(school.id, school.name)}
-                  color="error"
-                  size="small"
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
+            <Tooltip title="Przenieś do folderu">
+              <IconButton
+                onClick={() => setMoveSchoolDialog(school)}
+                size="small"
+                color="primary"
+              >
+                <MoveIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Usuń">
+              <IconButton
+                onClick={() => handleDeleteSchool(school.id, school.name)}
+                color="error"
+                size="small"
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Box>
         </TableCell>
       </TableRow>

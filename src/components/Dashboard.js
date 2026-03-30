@@ -49,6 +49,12 @@ import {
   TableCell,
   TableBody,
   ListItemButton,
+  IconButton,
+  Menu,
+  Collapse,
+  Breadcrumbs,
+  Link,
+  Divider,
 } from "@mui/material";
 import {
   Dashboard as DashboardIcon,
@@ -58,6 +64,17 @@ import {
   Logout as LogoutIcon,
   NotificationsActive as NotificationsActiveIcon,
   CheckCircle as CheckCircleIcon,
+  Folder as FolderIcon,
+  FolderOpen as FolderOpenIcon,
+  CreateNewFolder as CreateNewFolderIcon,
+  ChevronRight as ChevronRightIcon,
+  ExpandMore as ExpandMoreIcon,
+  MoreVert as MoreVertIcon,
+  MoveToInbox as MoveIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Storage as DatabaseIcon,
+  Inventory as StorageIcon,
 } from "@mui/icons-material";
 import UserManagement from "./UserManagement";
 import Settings from "./Settings";
@@ -79,6 +96,20 @@ function Dashboard() {
       navigate("/login");
     }
   }, [currentUser, navigate]);
+
+  // Загрузка папок
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = query(collection(db, "folders"), orderBy("createdAt", "asc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const folderList = [];
+      snapshot.forEach((doc) => {
+        folderList.push({ id: doc.id, ...doc.data() });
+      });
+      setFolders(folderList);
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
 
   const [schools, setSchools] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -107,6 +138,18 @@ function Dashboard() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [notificationsCount, setNotificationsCount] = useState(0);
+  
+  // Folder states
+  const [folders, setFolders] = useState([]);
+  const [activeFolderId, setActiveFolderId] = useState(null); // null = root
+  const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderType, setNewFolderType] = useState("folder"); // "folder" or "database"
+  const [showAddFolder, setShowFolderDialog] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState({});
+  const [folderMenuAnchor, setFolderMenuAnchor] = useState(null);
+  const [selectedFolder, setSelectedFolder] = useState(null);
+  const [moveSchoolDialog, setMoveSchoolDialog] = useState(null); // school to move
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -130,6 +173,18 @@ function Dashboard() {
   // Мемоизация фильтрованных данных
   const filteredAndSortedData = useMemo(() => {
     let filtered = [...schools];
+
+    // Фильтрация по папке/базе
+    if (activeTab === 0) {
+      // СТРОГАЯ ФИЛЬТРАЦИЯ:
+      // Если activeFolderId === null, показываем только те школы, у которых folderId пустой (корень)
+      // Если activeFolderId !== null, показываем только те школы, чьи folderId совпадают с выбранным
+      filtered = filtered.filter(s => {
+        const schoolFolderId = s.folderId || null;
+        return schoolFolderId === activeFolderId;
+      });
+    }
+    // Если открыта вкладка "Wszystkie dane" (activeTab === 4), фильтрация по папкам не применяется
 
     if (debouncedSearchTerm && typeof debouncedSearchTerm === "string") {
       const term = debouncedSearchTerm.toLowerCase();
@@ -185,7 +240,7 @@ function Dashboard() {
     });
 
     return filtered;
-  }, [schools, searchTerm, filters, sortBy, sortOrder]);
+  }, [schools, debouncedSearchTerm, filters, sortBy, sortOrder, activeTab, activeFolderId]);
 
   const stats = useMemo(() => {
     const today = new Date();
@@ -417,13 +472,71 @@ function Dashboard() {
     return () => unsubscribe();
   }, [reminderSchool?.id]);
 
+  const handleAddFolder = async () => {
+    if (!newFolderName.trim()) return;
+    try {
+      await addDoc(collection(db, "folders"), {
+        name: newFolderName,
+        type: newFolderType,
+        parentId: selectedFolder?.id || null, // null = root
+        createdBy: currentUser.uid,
+        createdAt: serverTimestamp(),
+      });
+      setNewFolderName("");
+      setNewFolderType("folder");
+      setShowFolderDialog(false);
+      setSelectedFolder(null);
+      setSnackbar({ open: true, message: "Element utworzony!", severity: "success" });
+    } catch (error) {
+      setSnackbar({ open: true, message: "Błąd tworzenia!", severity: "error" });
+    }
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    if (window.confirm("Czy na pewno chcesz usunąć ten folder? Szkoły zostaną przeniesione do folderu nadrzędnego.")) {
+      try {
+        const folderToDelete = folders.find(f => f.id === folderId);
+        const parentId = folderToDelete?.parentId || null;
+        
+        // 1. Move schools to parent folder
+        const schoolsInFolder = schools.filter(s => s.folderId === folderId);
+        for (const school of schoolsInFolder) {
+          await updateDoc(doc(db, "schools", school.id), { folderId: parentId });
+        }
+        
+        // 2. Move subfolders to parent folder
+        const subfolders = folders.filter(f => f.parentId === folderId);
+        for (const sub of subfolders) {
+          await updateDoc(doc(db, "folders", sub.id), { parentId });
+        }
+
+        // 3. Delete folder
+        await deleteDoc(doc(db, "folders", folderId));
+        
+        if (activeFolderId === folderId) setActiveFolderId(parentId);
+        setSnackbar({ open: true, message: "Folder usunięty!", severity: "success" });
+      } catch (error) {
+        setSnackbar({ open: true, message: "Błąd usuwania folderu!", severity: "error" });
+      }
+    }
+  };
+
   const handleAddSchool = async (e) => {
     e.preventDefault();
     if (!newSchool.name) return;
+    
+    // Проверка: нельзя добавлять школы прямо в папки, только в Базы или корень
+    const currentFolder = folders.find(f => f.id === activeFolderId);
+    if (currentFolder && currentFolder.type === "folder") {
+      setSnackbar({ open: true, message: "Możesz dodawać szkoły tylko do Bazy, a nie do Folderu!", severity: "warning" });
+      return;
+    }
+
     setLoading(true);
     try {
       await addDoc(collection(db, "schools"), {
         ...newSchool,
+        folderId: activeFolderId, // ID текущей базы
         lastUpdated: serverTimestamp(),
         lastUpdatedBy: userData?.name || currentUser?.email,
         createdBy: userData?.name || currentUser?.email,
@@ -506,6 +619,32 @@ function Dashboard() {
     }
   };
 
+  const handleMoveSchool = async (schoolId, folderId) => {
+    try {
+      await updateDoc(doc(db, "schools", schoolId), {
+        folderId: folderId,
+        lastUpdated: serverTimestamp(),
+        lastUpdatedBy: userData?.name || currentUser?.email,
+      });
+      
+      // Log moving to history
+      const folderName = folderId ? folders.find(f => f.id === folderId)?.name : "Root";
+      await addDoc(collection(db, "actions_log"), {
+        schoolId,
+        userId: currentUser?.uid,
+        user: userData?.name || currentUser?.email,
+        action: "Przeniesienie",
+        details: `Przeniesiono szkołę do folderu: "${folderName}"`,
+        timestamp: serverTimestamp(),
+      });
+
+      setMoveSchoolDialog(null);
+      setSnackbar({ open: true, message: "Szkoła przeniesiona!", severity: "success" });
+    } catch (error) {
+      setSnackbar({ open: true, message: "Błąd przenoszenia!", severity: "error" });
+    }
+  };
+
   const handleDeleteSchool = useCallback(async (id, name) => {
     if (window.confirm(`Usunąć "${name}"?`)) {
       try {
@@ -568,6 +707,78 @@ function Dashboard() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
+  // Helper to render folder tree
+  const renderFolderTree = (parentId = null, level = 0) => {
+    const currentFolders = folders.filter(f => f.parentId === parentId);
+    
+    return currentFolders.map(folder => {
+      const isExpanded = expandedFolders[folder.id];
+      const isActive = activeFolderId === folder.id;
+      
+      return (
+        <React.Fragment key={folder.id}>
+          <ListItem
+            disablePadding
+            sx={{ pl: level * 2 }}
+            className={`nav-list-item folder-item ${isActive ? "active" : ""}`}
+          >
+            <ListItemButton
+              onClick={() => {
+                setActiveFolderId(folder.id);
+                setActiveTab(0);
+              }}
+              sx={{ py: 0.5, borderRadius: 1 }}
+            >
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                {folder.type === "database" ? (
+                  <DatabaseIcon fontSize="small" color="primary" />
+                ) : isExpanded ? (
+                  <FolderOpenIcon fontSize="small" />
+                ) : (
+                  <FolderIcon fontSize="small" />
+                )}
+              </ListItemIcon>
+              <ListItemText 
+                primary={folder.name} 
+                primaryTypographyProps={{ 
+                  fontSize: "0.875rem", 
+                  noWrap: true,
+                  fontWeight: folder.type === "database" ? 600 : 400
+                }}
+              />
+              {folder.type !== "database" && (
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedFolders(prev => ({ ...prev, [folder.id]: !prev[folder.id] }));
+                  }}
+                >
+                  {isExpanded ? <ExpandMoreIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+                </IconButton>
+              )}
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedFolder(folder);
+                  setFolderMenuAnchor(e.currentTarget);
+                }}
+              >
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+            </ListItemButton>
+          </ListItem>
+          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {renderFolderTree(folder.id, level + 1)}
+            </List>
+          </Collapse>
+        </React.Fragment>
+      );
+    });
+  };
+
   if (isInitialLoad && schools.length === 0) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
@@ -579,15 +790,71 @@ function Dashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case 0:
+        // Build breadcrumbs for active folder
+        const breadcrumbs = [];
+        let currentId = activeFolderId;
+        while (currentId) {
+          const folder = folders.find(f => f.id === currentId);
+          if (folder) {
+            breadcrumbs.unshift(folder);
+            currentId = folder.parentId;
+          } else {
+            currentId = null;
+          }
+        }
+
+        const activeFolderName = activeFolderId 
+          ? folders.find(f => f.id === activeFolderId)?.name 
+          : "Baza główna";
+
         return (
           <Box className="dashboard-content">
+            <Box sx={{ mb: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Breadcrumbs separator={<ChevronRightIcon fontSize="small" />}>
+                <Link
+                  component="button"
+                  variant="body2"
+                  underline="hover"
+                  color={activeFolderId === null ? "primary" : "inherit"}
+                  onClick={() => setActiveFolderId(null)}
+                  sx={{ fontWeight: activeFolderId === null ? 700 : 400 }}
+                >
+                  Baza główna
+                </Link>
+                {breadcrumbs.map((b, index) => (
+                  <Link
+                    key={b.id}
+                    component="button"
+                    variant="body2"
+                    underline="hover"
+                    color={index === breadcrumbs.length - 1 ? "primary" : "inherit"}
+                    onClick={() => setActiveFolderId(b.id)}
+                    sx={{ fontWeight: index === breadcrumbs.length - 1 ? 700 : 400 }}
+                  >
+                    {b.name}
+                  </Link>
+                ))}
+              </Breadcrumbs>
+              
+              <Typography variant="caption" color="textSecondary" sx={{ bgcolor: "rgba(25, 118, 210, 0.08)", px: 1.5, py: 0.5, borderRadius: 4, fontWeight: 600 }}>
+                Aktualna baza: <strong>{activeFolderName}</strong>
+              </Typography>
+            </Box>
+
             <StatCards stats={stats} />
-            <AddSchoolForm
-              newSchool={newSchool}
-              setNewSchool={setNewSchool}
-              handleAddSchool={handleAddSchool}
-              loading={loading}
-            />
+            
+            <Box sx={{ mb: 3, p: 2, bgcolor: "white", borderRadius: 2, border: "1px solid #e0e0e0" }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: "primary.main" }}>
+                Dodaj nową szkołę do: {activeFolderName}
+              </Typography>
+              <AddSchoolForm
+                newSchool={newSchool}
+                setNewSchool={setNewSchool}
+                handleAddSchool={handleAddSchool}
+                loading={loading}
+              />
+            </Box>
+
             <FilterBar
               filters={filters}
               setFilters={setFilters}
@@ -613,6 +880,7 @@ function Dashboard() {
               handlePageChange={handlePageChange}
               setChatSchool={setChatSchool}
               setReminderSchool={setReminderSchool} // Передаем пропс
+              setMoveSchoolDialog={setMoveSchoolDialog} // Передаем пропс для перемещения
             />
           </Box>
         );
@@ -628,6 +896,42 @@ function Dashboard() {
         );
       case 3:
         return <Notifications />;
+      case 4:
+        return (
+          <Box className="dashboard-content">
+            <Typography variant="h5" sx={{ mb: 2, fontWeight: 700 }}>
+              Wszystkie dane (Pełna lista)
+            </Typography>
+            <StatCards stats={stats} />
+            <FilterBar
+              filters={filters}
+              setFilters={setFilters}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              handleSearchChange={handleSearchChange}
+              exportToExcel={exportToExcel}
+            />
+            <SchoolTable
+              paginatedSchools={paginatedSchools}
+              visibleColumns={visibleColumns}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              handleSort={handleSort}
+              handleUpdate={handleUpdate}
+              setEditingSchool={setEditingSchool}
+              viewHistory={viewHistory}
+              handleDeleteSchool={handleDeleteSchool}
+              isAdmin={isAdmin}
+              formatDate={formatDate}
+              page={page}
+              totalPages={Math.ceil(filteredAndSortedData.length / rowsPerPage)}
+              handlePageChange={handlePageChange}
+              setChatSchool={setChatSchool}
+              setReminderSchool={setReminderSchool}
+              setMoveSchoolDialog={setMoveSchoolDialog}
+            />
+          </Box>
+        );
       default:
         return null;
     }
@@ -683,20 +987,25 @@ function Dashboard() {
         <Box sx={{ overflow: "auto", mt: 2 }}>
           <List sx={{ px: 1 }}>
             {[
-              { text: "Dashboard", icon: <DashboardIcon />, tab: 0 },
+              { text: "Baza główna", icon: <DashboardIcon />, tab: 0, folderId: null },
+              { text: "Wszystkie dane", icon: <StorageIcon />, tab: 4 }, // Новый пункт для просмотра ВСЕГО
               { text: "Użytkownicy", icon: <PeopleIcon />, tab: 1, adminOnly: true },
               { text: "Ustawienia", icon: <SettingsIcon />, tab: 2 },
               { text: "Powiadomienia", icon: <NotificationsIcon />, tab: 3 },
             ].map((item) => {
               if (item.adminOnly && !isAdmin) return null;
+              const isItemActive = activeTab === item.tab && (item.tab !== 0 || activeFolderId === null);
               return (
                 <ListItem
                   key={item.text}
                   disablePadding
-                  className={`nav-list-item ${activeTab === item.tab ? "active" : ""}`}
+                  className={`nav-list-item ${isItemActive ? "active" : ""}`}
                 >
                   <ListItemButton
-                    onClick={() => setActiveTab(item.tab)}
+                    onClick={() => {
+                      setActiveTab(item.tab);
+                      if (item.tab === 0) setActiveFolderId(null);
+                    }}
                     sx={{ borderRadius: 1 }}
                   >
                     <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
@@ -708,6 +1017,24 @@ function Dashboard() {
                 </ListItem>
               );
             })}
+          </List>
+
+          <Divider sx={{ my: 1 }} />
+          
+          <Box sx={{ px: 2, py: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Typography variant="overline" sx={{ fontWeight: 700, color: "text.secondary" }}>
+              Twoje Bazy
+            </Typography>
+            <IconButton size="small" title="Dodaj nową bazę" onClick={() => {
+              setSelectedFolder(null);
+              setShowFolderDialog(true);
+            }}>
+              <CreateNewFolderIcon fontSize="small" />
+            </IconButton>
+          </Box>
+
+          <List sx={{ px: 1 }}>
+            {renderFolderTree()}
           </List>
         </Box>
       </Drawer>
@@ -1007,6 +1334,118 @@ function Dashboard() {
               Zapisz
             </Button>
           </Box>
+        </DialogActions>
+      </Dialog>
+
+      {/* Меню папки */}
+      <Menu
+        anchorEl={folderMenuAnchor}
+        open={Boolean(folderMenuAnchor)}
+        onClose={() => setFolderMenuAnchor(null)}
+      >
+        <MenuItem onClick={() => {
+          setFolderMenuAnchor(null);
+          setShowFolderDialog(true);
+        }}>
+          <ListItemIcon><CreateNewFolderIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary="Dodaj podfolder" />
+        </MenuItem>
+        <MenuItem onClick={() => {
+          const newName = window.prompt("Nowa nazwa folderu:", selectedFolder?.name);
+          if (newName && newName !== selectedFolder.name) {
+            updateDoc(doc(db, "folders", selectedFolder.id), { name: newName });
+          }
+          setFolderMenuAnchor(null);
+        }}>
+          <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary="Zmień nazwę" />
+        </MenuItem>
+        <MenuItem onClick={() => {
+          setFolderMenuAnchor(null);
+          handleDeleteFolder(selectedFolder.id);
+        }} sx={{ color: "error.main" }}>
+          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText primary="Usuń folder" />
+        </MenuItem>
+      </Menu>
+
+      {/* Диалог создания папки */}
+      <Dialog open={showAddFolder} onClose={() => setShowFolderDialog(false)}>
+        <DialogTitle>Utwórz nowy element</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {selectedFolder ? `Tworzysz element в: ${selectedFolder.name}` : "Tworzysz element główny"}
+          </Typography>
+          
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Typ elementu</InputLabel>
+            <Select
+              value={newFolderType}
+              label="Typ elementu"
+              onChange={(e) => setNewFolderType(e.target.value)}
+            >
+              <MenuItem value="folder">Folder (dla struktury)</MenuItem>
+              <MenuItem value="database">Baza (dla szkół)</MenuItem>
+            </Select>
+          </FormControl>
+
+          <TextField
+            autoFocus
+            fullWidth
+            label="Nazwa"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleAddFolder()}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowFolderDialog(false)}>Anuluj</Button>
+          <Button onClick={handleAddFolder} variant="contained" disabled={!newFolderName.trim()}>
+            Utwórz
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог перемещения школы */}
+      <Dialog open={!!moveSchoolDialog} onClose={() => setMoveSchoolDialog(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Przenieś do folderu: {moveSchoolDialog?.name}</DialogTitle>
+        <DialogContent dividers sx={{ p: 0 }}>
+          <List>
+            <ListItemButton 
+              selected={moveSchoolDialog?.folderId === null}
+              onClick={() => handleMoveSchool(moveSchoolDialog.id, null)}
+            >
+              <ListItemIcon><DashboardIcon /></ListItemIcon>
+              <ListItemText primary="Baza główna" />
+            </ListItemButton>
+            <Divider />
+            {folders.filter(f => f.type === "database").map(f => {
+              // Находим путь папки для подсказки (родительские папки)
+              const path = [];
+              let cur = f;
+              while(cur) {
+                path.unshift(cur.name);
+                cur = folders.find(p => p.id === cur.parentId);
+              }
+              
+              return (
+                <ListItemButton 
+                  key={f.id} 
+                  selected={moveSchoolDialog?.folderId === f.id}
+                  onClick={() => handleMoveSchool(moveSchoolDialog.id, f.id)}
+                >
+                  <ListItemIcon><DatabaseIcon color="primary" /></ListItemIcon>
+                  <ListItemText 
+                    primary={f.name} 
+                    secondary={path.length > 1 ? path.slice(0, -1).join(" / ") : "Baza główna"}
+                  />
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMoveSchoolDialog(null)}>Anuluj</Button>
         </DialogActions>
       </Dialog>
     </Box>
