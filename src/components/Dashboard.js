@@ -48,6 +48,7 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  ListItemButton,
 } from "@mui/material";
 import {
   Dashboard as DashboardIcon,
@@ -63,6 +64,7 @@ import StatCards from "./Dashboard/StatCards";
 import AddSchoolForm from "./Dashboard/AddSchoolForm";
 import FilterBar from "./Dashboard/FilterBar";
 import SchoolTable from "./Dashboard/SchoolTable";
+import SchoolChat from "./Dashboard/SchoolChat"; // Импортируем чат
 import { debounce } from "lodash";
 
 const drawerWidth = 240;
@@ -88,6 +90,7 @@ function Dashboard() {
   const [sortBy, setSortBy] = useState("lastUpdated");
   const [sortOrder, setSortOrder] = useState("desc");
   const [editingSchool, setEditingSchool] = useState(null);
+  const [chatSchool, setChatSchool] = useState(null); // Добавляем состояние для чата
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [notificationsCount, setNotificationsCount] = useState(0);
@@ -482,6 +485,7 @@ function Dashboard() {
               page={page}
               totalPages={Math.ceil(filteredAndSortedData.length / rowsPerPage)}
               handlePageChange={handlePageChange}
+              setChatSchool={setChatSchool} // Передаем пропс
             />
           </Box>
         );
@@ -560,16 +564,20 @@ function Dashboard() {
               if (item.adminOnly && !isAdmin) return null;
               return (
                 <ListItem
-                  button
                   key={item.text}
-                  onClick={() => setActiveTab(item.tab)}
+                  disablePadding
                   className={`nav-list-item ${activeTab === item.tab ? "active" : ""}`}
                 >
-                  <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-                  <ListItemText primary={item.text} />
-                  {item.text === "Powiadomienia" && notificationsCount > 0 && (
-                    <Badge badgeContent={notificationsCount} color="error" sx={{ ml: 1 }} />
-                  )}
+                  <ListItemButton
+                    onClick={() => setActiveTab(item.tab)}
+                    sx={{ borderRadius: 1 }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                    <ListItemText primary={item.text} />
+                    {item.text === "Powiadomienia" && notificationsCount > 0 && (
+                      <Badge badgeContent={notificationsCount} color="error" sx={{ ml: 1 }} />
+                    )}
+                  </ListItemButton>
                 </ListItem>
               );
             })}
@@ -581,6 +589,24 @@ function Dashboard() {
         <Toolbar />
         {renderContent()}
       </Box>
+
+      {/* Chat Sidebar/Overlay */}
+      {chatSchool && (
+        <Box
+          sx={{
+            position: "fixed",
+            right: 24,
+            bottom: 80,
+            width: 350,
+            zIndex: 1300,
+          }}
+        >
+          <SchoolChat
+            school={chatSchool}
+            onClose={() => setChatSchool(null)}
+          />
+        </Box>
+      )}
 
       <Snackbar
         open={snackbar.open}
@@ -598,15 +624,15 @@ function Dashboard() {
         <DialogContent dividers>
           {editingSchool && (
             <Grid container spacing={2} sx={{ mt: 0.5 }}>
-              <Grid item xs={12} md={6}>
+              <Grid xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Nazwa szkoły"
+                  label="Nazwa школы"
                   value={editingSchool.name}
                   onChange={(e) => setEditingSchool({ ...editingSchool, name: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Email"
@@ -614,7 +640,7 @@ function Dashboard() {
                   onChange={(e) => setEditingSchool({ ...editingSchool, email: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Telefon"
@@ -622,7 +648,7 @@ function Dashboard() {
                   onChange={(e) => setEditingSchool({ ...editingSchool, phone: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid xs={12} md={6}>
                 <FormControl fullWidth>
                   <InputLabel>Status</InputLabel>
                   <Select
@@ -636,7 +662,7 @@ function Dashboard() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid xs={12} md={6}>
                 <FormControl fullWidth>
                   <InputLabel>Priorytet</InputLabel>
                   <Select
@@ -650,7 +676,7 @@ function Dashboard() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid xs={12} md={6}>
                 <TextField
                   fullWidth
                   label="Następna akcja"
@@ -658,7 +684,7 @@ function Dashboard() {
                   onChange={(e) => setEditingSchool({ ...editingSchool, nextAction: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid xs={12}>
                 <TextField
                   fullWidth
                   label="Notatki"
@@ -668,10 +694,10 @@ function Dashboard() {
                   onChange={(e) => setEditingSchool({ ...editingSchool, notes: e.target.value })}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid xs={12}>
                 <TextField
                   fullWidth
-                  label="Akcje dla recepcji"
+                  label="Akcje для recepcji"
                   multiline
                   rows={3}
                   value={editingSchool.actions || ""}

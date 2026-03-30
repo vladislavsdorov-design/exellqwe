@@ -10,7 +10,7 @@ const AddSchoolForm = React.memo(({ newSchool, setNewSchool, handleAddSchool, lo
       </Typography>
       <form onSubmit={handleAddSchool}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={3}>
+          <Grid xs={12} md={3}>
             <TextField
               fullWidth
               label="Nazwa szkoły"
@@ -23,7 +23,7 @@ const AddSchoolForm = React.memo(({ newSchool, setNewSchool, handleAddSchool, lo
               size="small"
             />
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid xs={12} md={3}>
             <TextField
               fullWidth
               label="Email"
@@ -35,7 +35,7 @@ const AddSchoolForm = React.memo(({ newSchool, setNewSchool, handleAddSchool, lo
               size="small"
             />
           </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid xs={12} md={2}>
             <TextField
               fullWidth
               label="Telefon"
@@ -47,7 +47,7 @@ const AddSchoolForm = React.memo(({ newSchool, setNewSchool, handleAddSchool, lo
               size="small"
             />
           </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid xs={12} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel>Status</InputLabel>
               <Select
@@ -66,7 +66,7 @@ const AddSchoolForm = React.memo(({ newSchool, setNewSchool, handleAddSchool, lo
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid xs={12} md={2}>
             <Button
               fullWidth
               type="submit"

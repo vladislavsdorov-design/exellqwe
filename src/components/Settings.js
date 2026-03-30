@@ -78,7 +78,7 @@ function Settings({ columns, setColumns, setVisibleColumns }) {
           <FormGroup>
             <Grid container spacing={1}>
               {localColumns.map((column) => (
-                <Grid item xs={12} sm={6} md={4} key={column.id}>
+                <Grid xs={12} sm={6} md={4} key={column.id}>
                   <Paper
                     elevation={0}
                     sx={{

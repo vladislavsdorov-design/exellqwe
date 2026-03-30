@@ -4,7 +4,7 @@ import { Grid, Card, CardContent, Typography } from "@mui/material";
 const StatCards = React.memo(({ stats }) => {
   return (
     <Grid container spacing={2} className="stats-grid">
-      <Grid item xs={6} sm={4} md={2.4}>
+      <Grid xs={6} sm={4} md={2.4}>
         <Card className="stats-card">
           <CardContent sx={{ py: 1.5 }}>
             <Typography
@@ -23,7 +23,11 @@ const StatCards = React.memo(({ stats }) => {
           </CardContent>
         </Card>
       </Grid>
-      <Grid item xs={6} sm={4} md={2.4}>
+      <Grid
+        xs={6}
+        sm={4}
+        md={2.4}
+      >
         <Card
           className="stats-card"
           sx={{ borderLeft: "4px solid #f44336" }}
@@ -45,7 +49,11 @@ const StatCards = React.memo(({ stats }) => {
           </CardContent>
         </Card>
       </Grid>
-      <Grid item xs={6} sm={4} md={2.4}>
+      <Grid
+        xs={6}
+        sm={4}
+        md={2.4}
+      >
         <Card
           className="stats-card"
           sx={{ borderLeft: "4px solid #4caf50" }}
@@ -67,7 +75,11 @@ const StatCards = React.memo(({ stats }) => {
           </CardContent>
         </Card>
       </Grid>
-      <Grid item xs={6} sm={4} md={2.4}>
+      <Grid
+        xs={6}
+        sm={4}
+        md={2.4}
+      >
         <Card
           className="stats-card"
           sx={{ borderLeft: "4px solid #2196f3" }}
@@ -89,7 +101,11 @@ const StatCards = React.memo(({ stats }) => {
           </CardContent>
         </Card>
       </Grid>
-      <Grid item xs={12} sm={4} md={2.4}>
+      <Grid
+        xs={12}
+        sm={4}
+        md={2.4}
+      >
         <Card
           className="stats-card"
           sx={{ borderLeft: "4px solid #ff9800" }}

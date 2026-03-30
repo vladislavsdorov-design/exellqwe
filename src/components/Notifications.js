@@ -535,7 +535,7 @@ function Notifications() {
                   { label: "Średni", value: "medium", color: "warning", icon: null },
                   { label: "Niski", value: "low", color: "info", icon: null }
                 ].map((p) => (
-                  <Grid item xs={4} key={p.value}>
+                  <Grid xs={4} key={p.value}>
                     <Button
                       fullWidth
                       variant={adminPriority === p.value ? "contained" : "outlined"}

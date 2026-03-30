@@ -10,18 +10,18 @@ const FilterBar = React.memo(({ filters, setFilters, setSearchTerm, handleSearch
       sx={{ border: "1px solid #e0e0e0" }}
     >
       <Grid container spacing={2} alignItems="center">
-        <Grid item xs={12} md={4}>
+        <Grid xs={12} md={4}>
           <TextField
             fullWidth
-            label="Szukaj szkoły"
+            label="Szukaj школы"
             variant="outlined"
             onChange={handleSearchChange}
             size="small"
-            placeholder="Wpisz nazwę szkoły..."
+            placeholder="Wpisz nazwę школы..."
             className="search-field"
           />
         </Grid>
-        <Grid item xs={6} md={2}>
+        <Grid xs={6} md={2}>
           <FormControl fullWidth size="small">
             <InputLabel>Status</InputLabel>
             <Select
@@ -38,7 +38,7 @@ const FilterBar = React.memo(({ filters, setFilters, setSearchTerm, handleSearch
             </Select>
           </FormControl>
         </Grid>
-        <Grid item xs={6} md={2}>
+        <Grid xs={6} md={2}>
           <FormControl fullWidth size="small">
             <InputLabel>Priorytet</InputLabel>
             <Select
@@ -55,7 +55,7 @@ const FilterBar = React.memo(({ filters, setFilters, setSearchTerm, handleSearch
             </Select>
           </FormControl>
         </Grid>
-        <Grid item xs={12} md={2}>
+        <Grid xs={12} md={2}>
           <Button
             fullWidth
             variant="outlined"
@@ -69,7 +69,7 @@ const FilterBar = React.memo(({ filters, setFilters, setSearchTerm, handleSearch
             Wyczyść filtry
           </Button>
         </Grid>
-        <Grid item xs={12} md={2}>
+        <Grid xs={12} md={2}>
           <Button
             fullWidth
             variant="contained"
