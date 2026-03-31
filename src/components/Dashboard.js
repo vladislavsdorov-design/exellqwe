@@ -118,6 +118,7 @@ function Dashboard() {
   const [filters, setFilters] = useState({
     progress: "",
     priority: "",
+    reminder: "",
   });
 
   // Дебаунс поиска: фильтрация сработает только через 300мс после остановки ввода
@@ -225,6 +226,16 @@ function Dashboard() {
     }
 
     const now = new Date();
+
+    if (filters.reminder === "active") {
+      filtered = filtered.filter((school) => {
+        if (!school.reminderDate || !school.reminderText) return false;
+        return new Date(school.reminderDate) <= now;
+      });
+    } else if (filters.reminder === "any") {
+      filtered = filtered.filter((school) => Boolean(school.reminderDate && school.reminderText));
+    }
+
     filtered.sort((a, b) => {
       // Приоритет №1: Активные напоминания (дата наступила)
       const aReminderActive = a.reminderDate && a.reminderText && new Date(a.reminderDate) <= now;

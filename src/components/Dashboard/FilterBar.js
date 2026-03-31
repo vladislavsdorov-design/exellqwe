@@ -57,11 +57,25 @@ const FilterBar = React.memo(({ filters, setFilters, searchTerm, setSearchTerm, 
           </FormControl>
         </Grid>
         <Grid xs={12} md={2}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Przypomnienia</InputLabel>
+            <Select
+              value={filters.reminder || ""}
+              onChange={(e) => setFilters({ ...filters, reminder: e.target.value })}
+              label="Przypomnienia"
+            >
+              <MenuItem value="">Wszystkie</MenuItem>
+              <MenuItem value="active">Tylko aktywne</MenuItem>
+              <MenuItem value="any">Tylko z przypomnieniem</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid xs={12} md={1}>
           <Button
             fullWidth
             variant="outlined"
             onClick={() => {
-              setFilters({ progress: "", priority: "" });
+              setFilters({ progress: "", priority: "", reminder: "" });
               setSearchTerm("");
             }}
             size="small"
@@ -70,7 +84,7 @@ const FilterBar = React.memo(({ filters, setFilters, searchTerm, setSearchTerm, 
             Wyczyść filtry
           </Button>
         </Grid>
-        <Grid xs={12} md={2}>
+        <Grid xs={12} md={1}>
           <Button
             fullWidth
             variant="contained"

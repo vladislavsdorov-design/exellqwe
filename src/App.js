@@ -697,8 +697,9 @@ import {
   Route,
   Navigate,
   useNavigate,
+  Link as RouterLink,
 } from "react-router-dom";
-import { Box, CircularProgress, Typography } from "@mui/material";
+import { Box, CircularProgress, Typography, Button, Stack } from "@mui/material";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { db } from "./firebase";
@@ -872,6 +873,80 @@ function PriorityCommand({ priority }) {
   );
 }
 
+function CommandsPage() {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const [baseInfo, setBaseInfo] = useState({ label: "Baza: ...", id: null });
+
+  useEffect(() => {
+    if (!currentUser) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    const raw = localStorage.getItem("activeFolderId");
+    let baseId = null;
+    try {
+      baseId = raw ? JSON.parse(raw) : null;
+    } catch {
+      baseId = null;
+    }
+
+    setBaseInfo({
+      label: baseId ? `Baza: wybrana (${baseId})` : "Baza: Baza główna",
+      id: baseId,
+    });
+  }, [currentUser, navigate]);
+
+  return (
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        px: 2,
+      }}
+    >
+      <Box
+        sx={{
+          width: "min(620px, 100%)",
+          p: 3,
+          bgcolor: "white",
+          borderRadius: 2,
+          border: "1px solid #e0e0e0",
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+          Komendy
+        </Typography>
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          {baseInfo.label}
+        </Typography>
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          Komendy działają na ostatnio otwartą bazę. Najpierw otwórz bazę w panelu, potem wejdź na link.
+        </Typography>
+
+        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mb: 2 }}>
+          <Button component={RouterLink} to="/prioretetniski" variant="contained" color="success">
+            Priorytet: niski
+          </Button>
+          <Button component={RouterLink} to="/prioretetsredni" variant="contained" color="warning">
+            Priorytet: średni
+          </Button>
+          <Button component={RouterLink} to="/prioretetwysoki" variant="contained" color="error">
+            Priorytet: wysoki
+          </Button>
+        </Stack>
+
+        <Button component={RouterLink} to="/dashboard" variant="outlined">
+          Wróć do panelu
+        </Button>
+      </Box>
+    </Box>
+  );
+}
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -883,6 +958,9 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/prioretetniski" element={<PriorityCommand priority="low" />} />
+            <Route path="/prioretetsredni" element={<PriorityCommand priority="medium" />} />
+            <Route path="/prioretetwysoki" element={<PriorityCommand priority="high" />} />
+            <Route path="/komendy" element={<CommandsPage />} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
         </Router>
