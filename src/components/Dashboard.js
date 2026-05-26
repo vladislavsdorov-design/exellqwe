@@ -1183,6 +1183,9 @@ function Dashboard() {
                     <MenuItem value="BRAK AKCJI">BRAK AKCJI</MenuItem>
                     <MenuItem value="OFERTA WYSŁANA">OFERTA WYSŁANA</MenuItem>
                     <MenuItem value="W KONTAKCIE">W KONTAKCIE</MenuItem>
+                    <MenuItem value="OPŁACONE">OPŁACONE</MenuItem>
+                    <MenuItem value="NIEZAINTERESOWANY">NIEZAINTERESOWANY</MenuItem>
+                    <MenuItem value="NIE ODEBRAL TELEFONU">NIE ODEBRAL TELEFONU</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

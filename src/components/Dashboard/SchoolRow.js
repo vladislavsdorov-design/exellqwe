@@ -166,10 +166,16 @@ const SchoolRow = React.memo(
                       "& .MuiSelect-select": { py: 0.5 },
                       borderRadius: "20px",
                       bgcolor:
-                        school.progress === "OFERTA WYSŁANA"
+                        school.progress === "OPŁACONE"
+                          ? "#e8f5e9"
+                          : school.progress === "OFERTA WYSŁANA"
                           ? "#e8f5e9"
                           : school.progress === "W KONTAKCIE"
                           ? "#e3f2fd"
+                          : school.progress === "NIE ODEBRAL TELEFONU"
+                          ? "#fff3e0"
+                          : school.progress === "NIEZAINTERESOWANY"
+                          ? "#f5f5f5"
                           : "#ffebee",
                     }}
                   >
@@ -193,6 +199,30 @@ const SchoolRow = React.memo(
                       <Chip
                         label="W KONTAKCIE"
                         color="info"
+                        size="small"
+                        className="status-chip"
+                      />
+                    </MenuItem>
+                    <MenuItem value="OPŁACONE">
+                      <Chip
+                        label="OPŁACONE"
+                        color="success"
+                        size="small"
+                        className="status-chip"
+                      />
+                    </MenuItem>
+                    <MenuItem value="NIEZAINTERESOWANY">
+                      <Chip
+                        label="NIEZAINTERESOWANY"
+                        color="default"
+                        size="small"
+                        className="status-chip"
+                      />
+                    </MenuItem>
+                    <MenuItem value="NIE ODEBRAL TELEFONU">
+                      <Chip
+                        label="NIE ODEBRAL TELEFONU"
+                        color="warning"
                         size="small"
                         className="status-chip"
                       />
