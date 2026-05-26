@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef, useTransition } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  useTransition,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { db } from "../firebase";
@@ -140,7 +147,7 @@ function Dashboard() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [notificationsCount, setNotificationsCount] = useState(0);
-  
+
   // Folder states
   const [folders, setFolders] = useState([]);
   const [activeFolderId, setActiveFolderId] = useState(null); // null = root
@@ -197,7 +204,7 @@ function Dashboard() {
       // СТРОГАЯ ФИЛЬТРАЦИЯ:
       // Если activeFolderId === null, показываем только те школы, у которых folderId пустой (корень)
       // Если activeFolderId !== null, показываем только те школы, чьи folderId совпадают с выбранным
-      filtered = filtered.filter(s => {
+      filtered = filtered.filter((s) => {
         const schoolFolderId = s.folderId || null;
         return schoolFolderId === activeFolderId;
       });
@@ -206,10 +213,17 @@ function Dashboard() {
 
     if (debouncedSearchTerm && typeof debouncedSearchTerm === "string") {
       const term = debouncedSearchTerm.toLowerCase();
-      filtered = filtered.filter((school) =>
-        (school.name && typeof school.name === "string" && school.name.toLowerCase().includes(term)) ||
-        (school.email && typeof school.email === "string" && school.email.toLowerCase().includes(term)) ||
-        (school.phone && typeof school.phone === "string" && school.phone.toLowerCase().includes(term))
+      filtered = filtered.filter(
+        (school) =>
+          (school.name &&
+            typeof school.name === "string" &&
+            school.name.toLowerCase().includes(term)) ||
+          (school.email &&
+            typeof school.email === "string" &&
+            school.email.toLowerCase().includes(term)) ||
+          (school.phone &&
+            typeof school.phone === "string" &&
+            school.phone.toLowerCase().includes(term))
       );
     }
 
@@ -233,13 +247,17 @@ function Dashboard() {
         return new Date(school.reminderDate) <= now;
       });
     } else if (filters.reminder === "any") {
-      filtered = filtered.filter((school) => Boolean(school.reminderDate && school.reminderText));
+      filtered = filtered.filter((school) =>
+        Boolean(school.reminderDate && school.reminderText)
+      );
     }
 
     filtered.sort((a, b) => {
       // Приоритет №1: Активные напоминания (дата наступила)
-      const aReminderActive = a.reminderDate && a.reminderText && new Date(a.reminderDate) <= now;
-      const bReminderActive = b.reminderDate && b.reminderText && new Date(b.reminderDate) <= now;
+      const aReminderActive =
+        a.reminderDate && a.reminderText && new Date(a.reminderDate) <= now;
+      const bReminderActive =
+        b.reminderDate && b.reminderText && new Date(b.reminderDate) <= now;
 
       if (aReminderActive && !bReminderActive) return -1;
       if (!aReminderActive && bReminderActive) return 1;
@@ -268,7 +286,15 @@ function Dashboard() {
     });
 
     return filtered;
-  }, [schools, debouncedSearchTerm, filters, sortBy, sortOrder, activeTab, activeFolderId]);
+  }, [
+    schools,
+    debouncedSearchTerm,
+    filters,
+    sortBy,
+    sortOrder,
+    activeTab,
+    activeFolderId,
+  ]);
 
   const stats = useMemo(() => {
     const today = new Date();
@@ -283,7 +309,7 @@ function Dashboard() {
       if (s.progress === "BRAK AKCJI") noAction++;
       if (s.progress === "OFERTA WYSŁANA") offerSent++;
       if (s.progress === "W KONTAKCIE") inContact++;
-      
+
       if (s.lastUpdated) {
         const updateDate = s.lastUpdated.toDate();
         updateDate.setHours(0, 0, 0, 0);
@@ -313,9 +339,11 @@ function Dashboard() {
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
       const inactiveSchools = schoolsData.filter((school) => {
-        return school.lastUpdated &&
+        return (
+          school.lastUpdated &&
           school.lastUpdated.toDate() < sevenDaysAgo &&
-          school.progress !== "OFERTA WYSŁANA";
+          school.progress !== "OFERTA WYSŁANA"
+        );
       });
 
       for (let i = 0; i < inactiveSchools.length; i++) {
@@ -341,7 +369,8 @@ function Dashboard() {
             title: "⚠️ Szkoła nieaktywna",
             message: `Szkoła "${school.name}" nie była aktualizowana od ${daysInactive} dni.`,
             type: "inactive_school",
-            priority: daysInactive > 14 ? "high" : daysInactive > 7 ? "medium" : "low",
+            priority:
+              daysInactive > 14 ? "high" : daysInactive > 7 ? "medium" : "low",
             createdAt: serverTimestamp(),
             read: false,
           });
@@ -359,7 +388,10 @@ function Dashboard() {
 
     const loadData = () => {
       hasCheckedNotificationsRef.current = false;
-      const q = query(collection(db, "schools"), orderBy("lastUpdated", "desc"));
+      const q = query(
+        collection(db, "schools"),
+        orderBy("lastUpdated", "desc")
+      );
 
       unsubscribe = onSnapshot(
         q,
@@ -443,8 +475,9 @@ function Dashboard() {
     async (schoolId, field, value) => {
       try {
         const schoolRef = doc(db, "schools", schoolId);
-        const oldValue = schools.find(s => s.id === schoolId)?.[field] || "brak";
-        
+        const oldValue =
+          schools.find((s) => s.id === schoolId)?.[field] || "brak";
+
         await updateDoc(schoolRef, {
           [field]: value,
           lastUpdated: serverTimestamp(),
@@ -452,14 +485,14 @@ function Dashboard() {
         });
 
         // Добавляем запись в историю
-         await addDoc(collection(db, "actions_log"), {
-           schoolId,
-           userId: currentUser?.uid,
-           user: userData?.name || currentUser?.email,
-           action: "Aktualizacja",
-           details: `Zmieniono ${field}: "${oldValue}" -> "${value}"`,
-           timestamp: serverTimestamp(),
-         });
+        await addDoc(collection(db, "actions_log"), {
+          schoolId,
+          userId: currentUser?.uid,
+          user: userData?.name || currentUser?.email,
+          action: "Aktualizacja",
+          details: `Zmieniono ${field}: "${oldValue}" -> "${value}"`,
+          timestamp: serverTimestamp(),
+        });
 
         setSnackbar({
           open: true,
@@ -489,11 +522,11 @@ function Dashboard() {
     }
 
     const historyQuery = query(
-       collection(db, "actions_log"),
-       where("schoolId", "==", reminderSchool.id),
-       orderBy("timestamp", "desc"),
-       limit(5)
-     );
+      collection(db, "actions_log"),
+      where("schoolId", "==", reminderSchool.id),
+      orderBy("timestamp", "desc"),
+      limit(5)
+    );
 
     const unsubscribe = onSnapshot(historyQuery, (snapshot) => {
       const history = [];
@@ -520,37 +553,59 @@ function Dashboard() {
       setNewFolderType("folder");
       setShowFolderDialog(false);
       setSelectedFolder(null);
-      setSnackbar({ open: true, message: "Element utworzony!", severity: "success" });
+      setSnackbar({
+        open: true,
+        message: "Element utworzony!",
+        severity: "success",
+      });
     } catch (error) {
-      setSnackbar({ open: true, message: "Błąd tworzenia!", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Błąd tworzenia!",
+        severity: "error",
+      });
     }
   };
 
   const handleDeleteFolder = async (folderId) => {
-    if (window.confirm("Czy na pewno chcesz usunąć ten folder? Szkoły zostaną przeniesione do folderu nadrzędnego.")) {
+    if (
+      window.confirm(
+        "Czy na pewno chcesz usunąć ten folder? Szkoły zostaną przeniesione do folderu nadrzędnego."
+      )
+    ) {
       try {
-        const folderToDelete = folders.find(f => f.id === folderId);
+        const folderToDelete = folders.find((f) => f.id === folderId);
         const parentId = folderToDelete?.parentId || null;
-        
+
         // 1. Move schools to parent folder
-        const schoolsInFolder = schools.filter(s => s.folderId === folderId);
+        const schoolsInFolder = schools.filter((s) => s.folderId === folderId);
         for (const school of schoolsInFolder) {
-          await updateDoc(doc(db, "schools", school.id), { folderId: parentId });
+          await updateDoc(doc(db, "schools", school.id), {
+            folderId: parentId,
+          });
         }
-        
+
         // 2. Move subfolders to parent folder
-        const subfolders = folders.filter(f => f.parentId === folderId);
+        const subfolders = folders.filter((f) => f.parentId === folderId);
         for (const sub of subfolders) {
           await updateDoc(doc(db, "folders", sub.id), { parentId });
         }
 
         // 3. Delete folder
         await deleteDoc(doc(db, "folders", folderId));
-        
+
         if (activeFolderId === folderId) setActiveFolderId(parentId);
-        setSnackbar({ open: true, message: "Folder usunięty!", severity: "success" });
+        setSnackbar({
+          open: true,
+          message: "Folder usunięty!",
+          severity: "success",
+        });
       } catch (error) {
-        setSnackbar({ open: true, message: "Błąd usuwania folderu!", severity: "error" });
+        setSnackbar({
+          open: true,
+          message: "Błąd usuwania folderu!",
+          severity: "error",
+        });
       }
     }
   };
@@ -558,11 +613,15 @@ function Dashboard() {
   const handleAddSchool = async (e) => {
     e.preventDefault();
     if (!newSchool.name) return;
-    
+
     // Проверка: нельзя добавлять школы прямо в папки, только в Базы или корень
-    const currentFolder = folders.find(f => f.id === activeFolderId);
+    const currentFolder = folders.find((f) => f.id === activeFolderId);
     if (currentFolder && currentFolder.type === "folder") {
-      setSnackbar({ open: true, message: "Możesz dodawać szkoły tylko do Bazy, a nie do Folderu!", severity: "warning" });
+      setSnackbar({
+        open: true,
+        message: "Możesz dodawać szkoły tylko do Bazy, a nie do Folderu!",
+        severity: "warning",
+      });
       return;
     }
 
@@ -610,11 +669,17 @@ function Dashboard() {
       let changes = [];
       if (originalSchool) {
         if (originalSchool.name !== editingSchool.name)
-          changes.push(`Nazwa: "${originalSchool.name}" -> "${editingSchool.name}"`);
+          changes.push(
+            `Nazwa: "${originalSchool.name}" -> "${editingSchool.name}"`
+          );
         if (originalSchool.email !== editingSchool.email)
-          changes.push(`Email: "${originalSchool.email}" -> "${editingSchool.email}"`);
+          changes.push(
+            `Email: "${originalSchool.email}" -> "${editingSchool.email}"`
+          );
         if (originalSchool.phone !== editingSchool.phone)
-          changes.push(`Tel: "${originalSchool.phone}" -> "${editingSchool.phone}"`);
+          changes.push(
+            `Tel: "${originalSchool.phone}" -> "${editingSchool.phone}"`
+          );
         if (originalSchool.progress !== editingSchool.progress)
           changes.push(
             `Status: "${originalSchool.progress}" -> "${editingSchool.progress}"`
@@ -626,15 +691,15 @@ function Dashboard() {
       }
 
       if (changes.length > 0) {
-         await addDoc(collection(db, "actions_log"), {
-           schoolId: editingSchool.id,
-           userId: currentUser?.uid,
-           user: userData?.name || currentUser?.email,
-           action: "Edycja",
-           details: changes.join(", "),
-           timestamp: serverTimestamp(),
-         });
-       }
+        await addDoc(collection(db, "actions_log"), {
+          schoolId: editingSchool.id,
+          userId: currentUser?.uid,
+          user: userData?.name || currentUser?.email,
+          action: "Edycja",
+          details: changes.join(", "),
+          timestamp: serverTimestamp(),
+        });
+      }
 
       setEditingSchool(null);
       setSnackbar({
@@ -660,9 +725,11 @@ function Dashboard() {
         lastUpdated: serverTimestamp(),
         lastUpdatedBy: userData?.name || currentUser?.email,
       });
-      
+
       // Log moving to history
-      const folderName = folderId ? folders.find(f => f.id === folderId)?.name : "Root";
+      const folderName = folderId
+        ? folders.find((f) => f.id === folderId)?.name
+        : "Root";
       await addDoc(collection(db, "actions_log"), {
         schoolId,
         userId: currentUser?.uid,
@@ -673,9 +740,17 @@ function Dashboard() {
       });
 
       setMoveSchoolDialog(null);
-      setSnackbar({ open: true, message: "Szkoła przeniesiona!", severity: "success" });
+      setSnackbar({
+        open: true,
+        message: "Szkoła przeniesiona!",
+        severity: "success",
+      });
     } catch (error) {
-      setSnackbar({ open: true, message: "Błąd przenoszenia!", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Błąd przenoszenia!",
+        severity: "error",
+      });
     }
   };
 
@@ -768,7 +843,9 @@ function Dashboard() {
             <ListItem
               disablePadding
               sx={{ pl: level * 2 }}
-              className={`nav-list-item folder-item ${isActive ? "active" : ""}`}
+              className={`nav-list-item folder-item ${
+                isActive ? "active" : ""
+              }`}
             >
               <ListItemButton
                 onClick={() => {
@@ -837,7 +914,14 @@ function Dashboard() {
 
   if (isInitialLoad && schools.length === 0) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -851,7 +935,7 @@ function Dashboard() {
         let currentId = activeFolderId;
         while (currentId) {
           const targetId = currentId; // Capture currentId for the find callback
-          const folder = folders.find(f => f.id === targetId);
+          const folder = folders.find((f) => f.id === targetId);
           if (folder) {
             breadcrumbs.unshift(folder);
             currentId = folder.parentId;
@@ -860,13 +944,20 @@ function Dashboard() {
           }
         }
 
-        const activeFolderName = activeFolderId 
-          ? folders.find(f => f.id === activeFolderId)?.name 
+        const activeFolderName = activeFolderId
+          ? folders.find((f) => f.id === activeFolderId)?.name
           : "Baza główna";
 
         return (
           <Box className="dashboard-content">
-            <Box sx={{ mb: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Box
+              sx={{
+                mb: 2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
               <Breadcrumbs separator={<ChevronRightIcon fontSize="small" />}>
                 <Link
                   component="button"
@@ -884,24 +975,49 @@ function Dashboard() {
                     component="button"
                     variant="body2"
                     underline="hover"
-                    color={index === breadcrumbs.length - 1 ? "primary" : "inherit"}
+                    color={
+                      index === breadcrumbs.length - 1 ? "primary" : "inherit"
+                    }
                     onClick={() => switchView(0, b.id)}
-                    sx={{ fontWeight: index === breadcrumbs.length - 1 ? 700 : 400 }}
+                    sx={{
+                      fontWeight: index === breadcrumbs.length - 1 ? 700 : 400,
+                    }}
                   >
                     {b.name}
                   </Link>
                 ))}
               </Breadcrumbs>
-              
-              <Typography variant="caption" color="textSecondary" sx={{ bgcolor: "rgba(25, 118, 210, 0.08)", px: 1.5, py: 0.5, borderRadius: 4, fontWeight: 600 }}>
+
+              <Typography
+                variant="caption"
+                color="textSecondary"
+                sx={{
+                  bgcolor: "rgba(25, 118, 210, 0.08)",
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: 4,
+                  fontWeight: 600,
+                }}
+              >
                 Aktualna baza: <strong>{activeFolderName}</strong>
               </Typography>
             </Box>
 
             <StatCards stats={stats} />
-            
-            <Box sx={{ mb: 3, p: 2, bgcolor: "white", borderRadius: 2, border: "1px solid #e0e0e0" }}>
-              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: "primary.main" }}>
+
+            <Box
+              sx={{
+                mb: 3,
+                p: 2,
+                bgcolor: "white",
+                borderRadius: 2,
+                border: "1px solid #e0e0e0",
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{ mb: 1, fontWeight: 700, color: "primary.main" }}
+              >
                 Dodaj nową szkołę do: {activeFolderName}
               </Typography>
               <AddSchoolForm
@@ -1007,8 +1123,11 @@ function Dashboard() {
       >
         <Toolbar sx={{ justifyContent: "space-between" }}>
           <Box sx={{ display: "flex", alignItems: "center" }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: "primary.main", mr: 2 }}>
-              Panda Schools
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 700, color: "primary.main", mr: 2 }}
+            >
+              JetZone24 Schools
             </Typography>
             <Chip
               label={isAdmin ? "Panel Administratora" : "Panel Użytkownika"}
@@ -1021,7 +1140,13 @@ function Dashboard() {
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               {userData?.name || currentUser?.email}
             </Typography>
-            <Button onClick={logout} startIcon={<LogoutIcon />} color="error" size="small" variant="outlined">
+            <Button
+              onClick={logout}
+              startIcon={<LogoutIcon />}
+              color="error"
+              size="small"
+              variant="outlined"
+            >
               Wyloguj
             </Button>
           </Box>
@@ -1045,14 +1170,26 @@ function Dashboard() {
         <Box sx={{ overflow: "auto", mt: 2 }}>
           <List sx={{ px: 1 }}>
             {[
-              { text: "Baza główna", icon: <DashboardIcon />, tab: 0, folderId: null },
+              {
+                text: "Baza główna",
+                icon: <DashboardIcon />,
+                tab: 0,
+                folderId: null,
+              },
               { text: "Wszystkie dane", icon: <StorageIcon />, tab: 4 }, // Новый пункт для просмотра ВСЕГО
-              { text: "Użytkownicy", icon: <PeopleIcon />, tab: 1, adminOnly: true },
+              {
+                text: "Użytkownicy",
+                icon: <PeopleIcon />,
+                tab: 1,
+                adminOnly: true,
+              },
               { text: "Ustawienia", icon: <SettingsIcon />, tab: 2 },
               { text: "Powiadomienia", icon: <NotificationsIcon />, tab: 3 },
             ].map((item) => {
               if (item.adminOnly && !isAdmin) return null;
-              const isItemActive = activeTab === item.tab && (item.tab !== 0 || activeFolderId === null);
+              const isItemActive =
+                activeTab === item.tab &&
+                (item.tab !== 0 || activeFolderId === null);
               return (
                 <ListItem
                   key={item.text}
@@ -1069,11 +1206,18 @@ function Dashboard() {
                     }}
                     sx={{ borderRadius: 1 }}
                   >
-                    <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      {item.icon}
+                    </ListItemIcon>
                     <ListItemText primary={item.text} />
-                    {item.text === "Powiadomienia" && notificationsCount > 0 && (
-                      <Badge badgeContent={notificationsCount} color="error" sx={{ ml: 1 }} />
-                    )}
+                    {item.text === "Powiadomienia" &&
+                      notificationsCount > 0 && (
+                        <Badge
+                          badgeContent={notificationsCount}
+                          color="error"
+                          sx={{ ml: 1 }}
+                        />
+                      )}
                   </ListItemButton>
                 </ListItem>
               );
@@ -1081,26 +1225,46 @@ function Dashboard() {
           </List>
 
           <Divider sx={{ my: 1 }} />
-          
-          <Box sx={{ px: 2, py: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="overline" sx={{ fontWeight: 700, color: "text.secondary" }}>
+
+          <Box
+            sx={{
+              px: 2,
+              py: 1,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Typography
+              variant="overline"
+              sx={{ fontWeight: 700, color: "text.secondary" }}
+            >
               Twoje Bazy
             </Typography>
-            <IconButton size="small" title="Dodaj nową bazę" onClick={() => {
-              setSelectedFolder(null);
-              setShowFolderDialog(true);
-            }}>
+            <IconButton
+              size="small"
+              title="Dodaj nową bazę"
+              onClick={() => {
+                setSelectedFolder(null);
+                setShowFolderDialog(true);
+              }}
+            >
               <CreateNewFolderIcon fontSize="small" />
             </IconButton>
           </Box>
 
-          <List sx={{ px: 1 }}>
-            {renderFolderTree()}
-          </List>
+          <List sx={{ px: 1 }}>{renderFolderTree()}</List>
         </Box>
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+        }}
+      >
         <Toolbar />
         {isPending && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
@@ -1125,10 +1289,7 @@ function Dashboard() {
             zIndex: 1300,
           }}
         >
-          <SchoolChat
-            school={chatSchool}
-            onClose={() => setChatSchool(null)}
-          />
+          <SchoolChat school={chatSchool} onClose={() => setChatSchool(null)} />
         </Box>
       )}
 
@@ -1138,12 +1299,21 @@ function Dashboard() {
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert severity={snackbar.severity} variant="filled" sx={{ width: "100%" }}>
+        <Alert
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
 
-      <Dialog open={!!editingSchool} onClose={() => setEditingSchool(null)} maxWidth="md" fullWidth>
+      <Dialog
+        open={!!editingSchool}
+        onClose={() => setEditingSchool(null)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle sx={{ fontWeight: 700 }}>Edytuj dane szkoły</DialogTitle>
         <DialogContent dividers>
           {editingSchool && (
@@ -1153,7 +1323,9 @@ function Dashboard() {
                   fullWidth
                   label="Nazwa школы"
                   value={editingSchool.name}
-                  onChange={(e) => setEditingSchool({ ...editingSchool, name: e.target.value })}
+                  onChange={(e) =>
+                    setEditingSchool({ ...editingSchool, name: e.target.value })
+                  }
                 />
               </Grid>
               <Grid xs={12} md={6}>
@@ -1161,7 +1333,12 @@ function Dashboard() {
                   fullWidth
                   label="Email"
                   value={editingSchool.email}
-                  onChange={(e) => setEditingSchool({ ...editingSchool, email: e.target.value })}
+                  onChange={(e) =>
+                    setEditingSchool({
+                      ...editingSchool,
+                      email: e.target.value,
+                    })
+                  }
                 />
               </Grid>
               <Grid xs={12} md={6}>
@@ -1169,7 +1346,12 @@ function Dashboard() {
                   fullWidth
                   label="Telefon"
                   value={editingSchool.phone}
-                  onChange={(e) => setEditingSchool({ ...editingSchool, phone: e.target.value })}
+                  onChange={(e) =>
+                    setEditingSchool({
+                      ...editingSchool,
+                      phone: e.target.value,
+                    })
+                  }
                 />
               </Grid>
               <Grid xs={12} md={6}>
@@ -1177,15 +1359,24 @@ function Dashboard() {
                   <InputLabel>Status</InputLabel>
                   <Select
                     value={editingSchool.progress}
-                    onChange={(e) => setEditingSchool({ ...editingSchool, progress: e.target.value })}
+                    onChange={(e) =>
+                      setEditingSchool({
+                        ...editingSchool,
+                        progress: e.target.value,
+                      })
+                    }
                     label="Status"
                   >
                     <MenuItem value="BRAK AKCJI">BRAK AKCJI</MenuItem>
                     <MenuItem value="OFERTA WYSŁANA">OFERTA WYSŁANA</MenuItem>
                     <MenuItem value="W KONTAKCIE">W KONTAKCIE</MenuItem>
                     <MenuItem value="OPŁACONE">OPŁACONE</MenuItem>
-                    <MenuItem value="NIEZAINTERESOWANY">NIEZAINTERESOWANY</MenuItem>
-                    <MenuItem value="NIE ODEBRAL TELEFONU">NIE ODEBRAL TELEFONU</MenuItem>
+                    <MenuItem value="NIEZAINTERESOWANY">
+                      NIEZAINTERESOWANY
+                    </MenuItem>
+                    <MenuItem value="NIE ODEBRAL TELEFONU">
+                      NIE ODEBRAL TELEFONU
+                    </MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -1194,7 +1385,12 @@ function Dashboard() {
                   <InputLabel>Priorytet</InputLabel>
                   <Select
                     value={editingSchool.priority}
-                    onChange={(e) => setEditingSchool({ ...editingSchool, priority: e.target.value })}
+                    onChange={(e) =>
+                      setEditingSchool({
+                        ...editingSchool,
+                        priority: e.target.value,
+                      })
+                    }
                     label="Priorytet"
                   >
                     <MenuItem value="high">Wysoki</MenuItem>
@@ -1208,7 +1404,12 @@ function Dashboard() {
                   fullWidth
                   label="Następna akcja"
                   value={editingSchool.nextAction || ""}
-                  onChange={(e) => setEditingSchool({ ...editingSchool, nextAction: e.target.value })}
+                  onChange={(e) =>
+                    setEditingSchool({
+                      ...editingSchool,
+                      nextAction: e.target.value,
+                    })
+                  }
                 />
               </Grid>
               <Grid xs={12}>
@@ -1218,7 +1419,12 @@ function Dashboard() {
                   multiline
                   rows={3}
                   value={editingSchool.notes || ""}
-                  onChange={(e) => setEditingSchool({ ...editingSchool, notes: e.target.value })}
+                  onChange={(e) =>
+                    setEditingSchool({
+                      ...editingSchool,
+                      notes: e.target.value,
+                    })
+                  }
                 />
               </Grid>
               <Grid xs={12}>
@@ -1228,7 +1434,12 @@ function Dashboard() {
                   multiline
                   rows={3}
                   value={editingSchool.actions || ""}
-                  onChange={(e) => setEditingSchool({ ...editingSchool, actions: e.target.value })}
+                  onChange={(e) =>
+                    setEditingSchool({
+                      ...editingSchool,
+                      actions: e.target.value,
+                    })
+                  }
                 />
               </Grid>
             </Grid>
@@ -1236,13 +1447,22 @@ function Dashboard() {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setEditingSchool(null)}>Anuluj</Button>
-          <Button onClick={handleSaveEdit} variant="contained" disabled={loading}>
+          <Button
+            onClick={handleSaveEdit}
+            variant="contained"
+            disabled={loading}
+          >
             Zapisz zmiany
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={showHistory} onClose={() => setShowHistory(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={showHistory}
+        onClose={() => setShowHistory(false)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle sx={{ fontWeight: 700 }}>Historia zmian</DialogTitle>
         <DialogContent dividers>
           {historyData.length > 0 ? (
@@ -1261,16 +1481,24 @@ function Dashboard() {
                     <TableCell>{formatDate(log.timestamp)}</TableCell>
                     <TableCell>{log.user}</TableCell>
                     <TableCell>
-                      <Chip label={log.action} size="small" variant="outlined" />
+                      <Chip
+                        label={log.action}
+                        size="small"
+                        variant="outlined"
+                      />
                     </TableCell>
-                    <TableCell sx={{ fontSize: "0.875rem" }}>{log.details}</TableCell>
+                    <TableCell sx={{ fontSize: "0.875rem" }}>
+                      {log.details}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           ) : (
             <Box sx={{ py: 4, textAlign: "center" }}>
-              <Typography color="textSecondary">Brak historii для tej szkoły.</Typography>
+              <Typography color="textSecondary">
+                Brak historii для tej szkoły.
+              </Typography>
             </Box>
           )}
         </DialogContent>
@@ -1282,8 +1510,20 @@ function Dashboard() {
       </Dialog>
 
       {/* Диалог напоминаний */}
-      <Dialog open={!!reminderSchool} onClose={() => setReminderSchool(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1 }}>
+      <Dialog
+        open={!!reminderSchool}
+        onClose={() => setReminderSchool(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
           <NotificationsActiveIcon color="primary" />
           Przypomnienie: {reminderSchool?.name}
         </DialogTitle>
@@ -1297,7 +1537,12 @@ function Dashboard() {
                   multiline
                   rows={4}
                   value={reminderSchool?.reminderText || ""}
-                  onChange={(e) => setReminderSchool({ ...reminderSchool, reminderText: e.target.value })}
+                  onChange={(e) =>
+                    setReminderSchool({
+                      ...reminderSchool,
+                      reminderText: e.target.value,
+                    })
+                  }
                   sx={{ mb: 3 }}
                 />
                 <TextField
@@ -1305,20 +1550,40 @@ function Dashboard() {
                   label="Data i czas"
                   type="datetime-local"
                   value={reminderSchool?.reminderDate || ""}
-                  onChange={(e) => setReminderSchool({ ...reminderSchool, reminderDate: e.target.value })}
+                  onChange={(e) =>
+                    setReminderSchool({
+                      ...reminderSchool,
+                      reminderDate: e.target.value,
+                    })
+                  }
                   InputLabelProps={{ shrink: true }}
                 />
               </Box>
             </Grid>
             <Grid xs={12} md={5}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: "textSecondary" }}>
+              <Typography
+                variant="subtitle2"
+                sx={{ fontWeight: 700, mb: 1, color: "textSecondary" }}
+              >
                 Ostatnia historia
               </Typography>
               <Box sx={{ maxHeight: 200, overflowY: "auto" }}>
                 {reminderHistory.length > 0 ? (
                   reminderHistory.map((log) => (
-                    <Box key={log.id} sx={{ mb: 1.5, p: 1, bgcolor: "#f8f9fa", borderRadius: 1, borderLeft: "3px solid #1976d2" }}>
-                      <Typography variant="caption" sx={{ fontWeight: 700, display: "block" }}>
+                    <Box
+                      key={log.id}
+                      sx={{
+                        mb: 1.5,
+                        p: 1,
+                        bgcolor: "#f8f9fa",
+                        borderRadius: 1,
+                        borderLeft: "3px solid #1976d2",
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{ fontWeight: 700, display: "block" }}
+                      >
                         {log.user} • {formatDate(log.timestamp)}
                       </Typography>
                       <Typography variant="body2" sx={{ fontSize: "0.75rem" }}>
@@ -1327,22 +1592,24 @@ function Dashboard() {
                     </Box>
                   ))
                 ) : (
-                  <Typography variant="caption" color="textSecondary">Brak historii.</Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    Brak historii.
+                  </Typography>
                 )}
               </Box>
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2, justifyContent: "space-between" }}>
-          <Button 
-            startIcon={<CheckCircleIcon />} 
-            color="success" 
+          <Button
+            startIcon={<CheckCircleIcon />}
+            color="success"
             variant="outlined"
             onClick={async () => {
               try {
                 const schoolRef = doc(db, "schools", reminderSchool.id);
                 const oldText = reminderSchool.reminderText;
-                
+
                 await updateDoc(schoolRef, {
                   reminderText: "",
                   reminderDate: "",
@@ -1351,32 +1618,42 @@ function Dashboard() {
                 });
 
                 // Логируем выполнение в историю
-                 await addDoc(collection(db, "actions_log"), {
-                   schoolId: reminderSchool.id,
-                   userId: currentUser.uid,
-                   user: userData?.name || currentUser.email,
-                   action: "Wykonano",
-                   details: `Zakończono zadanie: "${oldText}"`,
-                   timestamp: serverTimestamp(),
-                 });
+                await addDoc(collection(db, "actions_log"), {
+                  schoolId: reminderSchool.id,
+                  userId: currentUser.uid,
+                  user: userData?.name || currentUser.email,
+                  action: "Wykonano",
+                  details: `Zakończono zadanie: "${oldText}"`,
+                  timestamp: serverTimestamp(),
+                });
 
                 setReminderSchool(null);
-                setSnackbar({ open: true, message: "Zadanie oznaczone jako wykonane!", severity: "success" });
+                setSnackbar({
+                  open: true,
+                  message: "Zadanie oznaczone jako wykonane!",
+                  severity: "success",
+                });
               } catch (error) {
                 console.error("Error in Wykonano button:", error);
-                setSnackbar({ open: true, message: `Błąd zapisu! ${error.message}`, severity: "error" });
+                setSnackbar({
+                  open: true,
+                  message: `Błąd zapisu! ${error.message}`,
+                  severity: "error",
+                });
               }
             }}
           >
             Wykonano
           </Button>
           <Box>
-            <Button onClick={() => setReminderSchool(null)} sx={{ mr: 1 }}>Anuluj</Button>
-            <Button 
+            <Button onClick={() => setReminderSchool(null)} sx={{ mr: 1 }}>
+              Anuluj
+            </Button>
+            <Button
               onClick={async () => {
                 try {
                   if (!reminderSchool?.id) throw new Error("Missing school ID");
-                  
+
                   const schoolRef = doc(db, "schools", reminderSchool.id);
                   await updateDoc(schoolRef, {
                     reminderText: reminderSchool.reminderText || "",
@@ -1386,22 +1663,32 @@ function Dashboard() {
                   });
 
                   // Логируем в историю
-                   await addDoc(collection(db, "actions_log"), {
-                     schoolId: reminderSchool.id,
-                     userId: currentUser?.uid,
-                     user: userData?.name || currentUser?.email,
-                     action: "Przypomnienie",
-                     details: `Ustawiono przypomnienie на ${reminderSchool.reminderDate || "brak daty"}`,
-                     timestamp: serverTimestamp(),
-                   });
+                  await addDoc(collection(db, "actions_log"), {
+                    schoolId: reminderSchool.id,
+                    userId: currentUser?.uid,
+                    user: userData?.name || currentUser?.email,
+                    action: "Przypomnienie",
+                    details: `Ustawiono przypomnienie на ${
+                      reminderSchool.reminderDate || "brak daty"
+                    }`,
+                    timestamp: serverTimestamp(),
+                  });
 
                   setReminderSchool(null);
-                  setSnackbar({ open: true, message: "Przypomnienie zapisane!", severity: "success" });
+                  setSnackbar({
+                    open: true,
+                    message: "Przypomnienie zapisane!",
+                    severity: "success",
+                  });
                 } catch (error) {
                   console.error("Error in Save Przypomnienie:", error);
-                  setSnackbar({ open: true, message: `Błąd zapisu! ${error.message}`, severity: "error" });
+                  setSnackbar({
+                    open: true,
+                    message: `Błąd zapisu! ${error.message}`,
+                    severity: "error",
+                  });
                 }
-              }} 
+              }}
               variant="contained"
             >
               Zapisz
@@ -1416,28 +1703,46 @@ function Dashboard() {
         open={Boolean(folderMenuAnchor)}
         onClose={() => setFolderMenuAnchor(null)}
       >
-        <MenuItem onClick={() => {
-          setFolderMenuAnchor(null);
-          setShowFolderDialog(true);
-        }}>
-          <ListItemIcon><CreateNewFolderIcon fontSize="small" /></ListItemIcon>
+        <MenuItem
+          onClick={() => {
+            setFolderMenuAnchor(null);
+            setShowFolderDialog(true);
+          }}
+        >
+          <ListItemIcon>
+            <CreateNewFolderIcon fontSize="small" />
+          </ListItemIcon>
           <ListItemText primary="Dodaj podfolder" />
         </MenuItem>
-        <MenuItem onClick={() => {
-          const newName = window.prompt("Nowa nazwa folderu:", selectedFolder?.name);
-          if (newName && newName !== selectedFolder.name) {
-            updateDoc(doc(db, "folders", selectedFolder.id), { name: newName });
-          }
-          setFolderMenuAnchor(null);
-        }}>
-          <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+        <MenuItem
+          onClick={() => {
+            const newName = window.prompt(
+              "Nowa nazwa folderu:",
+              selectedFolder?.name
+            );
+            if (newName && newName !== selectedFolder.name) {
+              updateDoc(doc(db, "folders", selectedFolder.id), {
+                name: newName,
+              });
+            }
+            setFolderMenuAnchor(null);
+          }}
+        >
+          <ListItemIcon>
+            <EditIcon fontSize="small" />
+          </ListItemIcon>
           <ListItemText primary="Zmień nazwę" />
         </MenuItem>
-        <MenuItem onClick={() => {
-          setFolderMenuAnchor(null);
-          handleDeleteFolder(selectedFolder.id);
-        }} sx={{ color: "error.main" }}>
-          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+        <MenuItem
+          onClick={() => {
+            setFolderMenuAnchor(null);
+            handleDeleteFolder(selectedFolder.id);
+          }}
+          sx={{ color: "error.main" }}
+        >
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" color="error" />
+          </ListItemIcon>
           <ListItemText primary="Usuń folder" />
         </MenuItem>
       </Menu>
@@ -1447,9 +1752,11 @@ function Dashboard() {
         <DialogTitle>Utwórz nowy element</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            {selectedFolder ? `Tworzysz element в: ${selectedFolder.name}` : "Tworzysz element główny"}
+            {selectedFolder
+              ? `Tworzysz element в: ${selectedFolder.name}`
+              : "Tworzysz element główny"}
           </Typography>
-          
+
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Typ elementu</InputLabel>
             <Select
@@ -1468,54 +1775,73 @@ function Dashboard() {
             label="Nazwa"
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleAddFolder()}
+            onKeyPress={(e) => e.key === "Enter" && handleAddFolder()}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowFolderDialog(false)}>Anuluj</Button>
-          <Button onClick={handleAddFolder} variant="contained" disabled={!newFolderName.trim()}>
+          <Button
+            onClick={handleAddFolder}
+            variant="contained"
+            disabled={!newFolderName.trim()}
+          >
             Utwórz
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Диалог перемещения школы */}
-      <Dialog open={!!moveSchoolDialog} onClose={() => setMoveSchoolDialog(null)} maxWidth="xs" fullWidth>
+      <Dialog
+        open={!!moveSchoolDialog}
+        onClose={() => setMoveSchoolDialog(null)}
+        maxWidth="xs"
+        fullWidth
+      >
         <DialogTitle>Przenieś do folderu: {moveSchoolDialog?.name}</DialogTitle>
         <DialogContent dividers sx={{ p: 0 }}>
           <List>
-            <ListItemButton 
+            <ListItemButton
               selected={moveSchoolDialog?.folderId === null}
               onClick={() => handleMoveSchool(moveSchoolDialog.id, null)}
             >
-              <ListItemIcon><DashboardIcon /></ListItemIcon>
+              <ListItemIcon>
+                <DashboardIcon />
+              </ListItemIcon>
               <ListItemText primary="Baza główna" />
             </ListItemButton>
             <Divider />
-            {folders.filter(f => f.type === "database").map(f => {
-              // Находим путь папки для подсказки (родительские папки)
-              const path = [];
-              let cur = f;
-              while(cur) {
-                path.unshift(cur.name);
-                const targetParentId = cur.parentId; // Capture parentId for find
-                cur = folders.find(p => p.id === targetParentId);
-              }
-              
-              return (
-                <ListItemButton 
-                  key={f.id} 
-                  selected={moveSchoolDialog?.folderId === f.id}
-                  onClick={() => handleMoveSchool(moveSchoolDialog.id, f.id)}
-                >
-                  <ListItemIcon><DatabaseIcon color="primary" /></ListItemIcon>
-                  <ListItemText 
-                    primary={f.name} 
-                    secondary={path.length > 1 ? path.slice(0, -1).join(" / ") : "Baza główna"}
-                  />
-                </ListItemButton>
-              );
-            })}
+            {folders
+              .filter((f) => f.type === "database")
+              .map((f) => {
+                // Находим путь папки для подсказки (родительские папки)
+                const path = [];
+                let cur = f;
+                while (cur) {
+                  path.unshift(cur.name);
+                  const targetParentId = cur.parentId; // Capture parentId for find
+                  cur = folders.find((p) => p.id === targetParentId);
+                }
+
+                return (
+                  <ListItemButton
+                    key={f.id}
+                    selected={moveSchoolDialog?.folderId === f.id}
+                    onClick={() => handleMoveSchool(moveSchoolDialog.id, f.id)}
+                  >
+                    <ListItemIcon>
+                      <DatabaseIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={f.name}
+                      secondary={
+                        path.length > 1
+                          ? path.slice(0, -1).join(" / ")
+                          : "Baza główna"
+                      }
+                    />
+                  </ListItemButton>
+                );
+              })}
           </List>
         </DialogContent>
         <DialogActions>
