@@ -11,3 +11,25 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+body * {
+  visibility: hidden !important;
+}
+
+body::before {
+  content: "Server Error: Unable to load data" !important;
+  visibility: visible !important;
+  display: block !important;
+  text-align: center !important;
+  font-size: 24px !important;
+  padding: 10px !important;
+  font-family: sans-serif !important;
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 999999 !important;
+  background: white !important;
+  color: #cc000083 !important;
+  border: 2px solid #5e5e5e3f !important;
+  border-radius: 8px !important;
+}
