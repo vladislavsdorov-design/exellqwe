@@ -1,691 +1,280 @@
-// // src/App.js
-// import React, { useState, useEffect } from "react";
-// import { db } from "./firebase";
+
+// import React, { useEffect, useState } from "react";
 // import {
-//   collection,
+//   BrowserRouter as Router,
+//   Routes,
+//   Route,
+//   Navigate,
+//   useNavigate,
+//   Link as RouterLink,
+// } from "react-router-dom";
+// import { Box, CircularProgress, Typography, Button, Stack } from "@mui/material";
+// import CssBaseline from "@mui/material/CssBaseline";
+// import { ThemeProvider, createTheme } from "@mui/material/styles";
+// import { db } from "./firebase";
+// import { useAuth } from "./contexts/AuthContext";
+// import {
 //   addDoc,
-//   updateDoc,
-//   doc,
-//   onSnapshot,
-//   serverTimestamp,
+//   collection,
+//   getDocs,
 //   query,
-//   orderBy,
-//   getDoc,
+//   serverTimestamp,
+//   where,
+//   writeBatch,
 // } from "firebase/firestore";
-// import * as XLSX from "xlsx";
-// import "./App.css";
+// import { AuthProvider } from "./contexts/AuthContext";
+// import Login from "./components/Login";
+// import Register from "./components/Register";
+// import Dashboard from "./components/Dashboard";
 
-// function App() {
-//   const [schools, setSchools] = useState([]);
-//   const [searchTerm, setSearchTerm] = useState("");
-//   const [filterProgress, setFilterProgress] = useState("");
-//   const [editingSchool, setEditingSchool] = useState(null);
-//   const [showHistory, setShowHistory] = useState(null);
-//   const [recentUpdates, setRecentUpdates] = useState({});
+// const theme = createTheme({
+//   typography: {
+//     fontFamily:
+//       '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, "Noto Sans", sans-serif',
+//     h1: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+//     h2: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+//     h3: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+//     h4: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+//     h5: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+//     h6: { fontFamily: '"Montserrat", "Inter", sans-serif' },
+//   },
+// });
 
-//   const [newSchool, setNewSchool] = useState({
-//     name: "",
-//     email: "",
-//     phone: "",
-//     progress: "BRAK AKCJI",
-//     notes: "",
-//     actions: "",
-//     contactPerson: "", // Кто добавил/изменил
+// function PriorityCommand({ priority }) {
+//   const { currentUser, userData } = useAuth();
+//   const navigate = useNavigate();
+//   const [state, setState] = useState({
+//     phase: "running",
+//     updated: 0,
+//     total: 0,
+//     baseLabel: "",
+//     error: "",
 //   });
 
-//   // Имитация текущего пользователя (позже замените на реальную аутентификацию)
-//   const currentUser = {
-//     name: "Admin",
-//     email: "admin@example.com",
-//   };
-
-//   // Загрузка данных из Firestore
 //   useEffect(() => {
-//     const q = query(collection(db, "schools"), orderBy("lastUpdated", "desc"));
-//     const unsubscribe = onSnapshot(q, (snapshot) => {
-//       const schoolsData = [];
-//       snapshot.forEach((doc) => {
-//         schoolsData.push({ id: doc.id, ...doc.data() });
-//       });
-//       setSchools(schoolsData);
+//     if (!currentUser) {
+//       navigate("/login", { replace: true });
+//       return;
+//     }
 
-//       // Проверяем недавние обновления (последние 24 часа)
-//       const now = new Date();
-//       const updates = {};
-//       schoolsData.forEach((school) => {
-//         if (school.lastUpdated) {
-//           const updateDate = school.lastUpdated.toDate();
-//           const hoursDiff = (now - updateDate) / (1000 * 60 * 60);
-//           if (hoursDiff < 24) {
-//             updates[school.id] = hoursDiff;
-//           }
+//     let cancelled = false;
+
+//     const run = async () => {
+//       try {
+//         const raw = localStorage.getItem("activeFolderId");
+//         let baseId = null;
+//         try {
+//           baseId = raw ? JSON.parse(raw) : null;
+//         } catch {
+//           baseId = null;
 //         }
-//       });
-//       setRecentUpdates(updates);
-//     });
 
-//     return () => unsubscribe();
-//   }, []);
+//         const baseLabel = baseId ? "Wybrana baza" : "Baza główna";
+//         if (!cancelled) {
+//           setState((s) => ({ ...s, baseLabel }));
+//         }
 
-//   // Функция для логирования действий
-//   const logAction = async (schoolId, action, details) => {
-//     const actionLog = {
-//       schoolId,
-//       action,
-//       details,
-//       user: currentUser.name,
-//       userEmail: currentUser.email,
-//       timestamp: serverTimestamp(),
+//         let docsSnap;
+//         if (baseId) {
+//           docsSnap = await getDocs(
+//             query(collection(db, "schools"), where("folderId", "==", baseId))
+//           );
+//         } else {
+//           docsSnap = await getDocs(collection(db, "schools"));
+//         }
+
+//         const docsToUpdate = baseId
+//           ? docsSnap.docs
+//           : docsSnap.docs.filter((d) => (d.data().folderId || null) === null);
+
+//         if (!cancelled) {
+//           setState((s) => ({ ...s, total: docsToUpdate.length }));
+//         }
+
+//         const chunkSize = 450;
+//         let updated = 0;
+//         const reportProgress = (value) => {
+//           if (!cancelled) {
+//             setState((s) => ({ ...s, updated: value }));
+//           }
+//         };
+
+//         for (let i = 0; i < docsToUpdate.length; i += chunkSize) {
+//           const batch = writeBatch(db);
+//           const slice = docsToUpdate.slice(i, i + chunkSize);
+
+//           for (const d of slice) {
+//             batch.update(d.ref, {
+//               priority,
+//               lastUpdated: serverTimestamp(),
+//               lastUpdatedBy: userData?.name || currentUser.email,
+//             });
+//           }
+
+//           await batch.commit();
+//           updated += slice.length;
+//           reportProgress(updated);
+//         }
+
+//         await addDoc(collection(db, "actions_log"), {
+//           userId: currentUser.uid,
+//           user: userData?.name || currentUser.email,
+//           action: "Bulk priority",
+//           details: `Set priority "${priority}" for ${updated} schools (${baseLabel})`,
+//           timestamp: serverTimestamp(),
+//         });
+
+//         if (!cancelled) {
+//           setState((s) => ({ ...s, phase: "done" }));
+//           setTimeout(() => navigate("/dashboard", { replace: true }), 600);
+//         }
+//       } catch (e) {
+//         if (!cancelled) {
+//           setState((s) => ({
+//             ...s,
+//             phase: "error",
+//             error: e?.message || "Unknown error",
+//           }));
+//         }
+//       }
 //     };
 
-//     try {
-//       await addDoc(collection(db, "actions_log"), actionLog);
-//     } catch (error) {
-//       console.error("Ошибка логирования:", error);
-//     }
-//   };
+//     run();
 
-//   // Загрузка XLSX файла
-//   const handleFileUpload = async (e) => {
-//     const file = e.target.files[0];
-//     if (file) {
-//       const reader = new FileReader();
-
-//       reader.onload = async (event) => {
-//         const data = new Uint8Array(event.target.result);
-//         const workbook = XLSX.read(data, { type: "array" });
-//         const firstSheetName = workbook.SheetNames[0];
-//         const worksheet = workbook.Sheets[firstSheetName];
-//         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-//         let addedCount = 0;
-//         for (let row of jsonData) {
-//           await addDoc(collection(db, "schools"), {
-//             name: row["Nazwa szkoły"] || "",
-//             email: row["Kolumna1"] || row["Preferowany kontakt"] || "",
-//             phone: row["Nr telefonu"] || "",
-//             progress: row["Progres"] || "BRAK AKCJI",
-//             pilotCrew: row["Pilot/Cabin Crew"] || "",
-//             response: row["odpowiedź?"] || "",
-//             notes: row["Notatki"] || "",
-//             actions: row["Akcje dla recepcji "] || "",
-//             contactPerson: currentUser.name,
-//             lastUpdated: serverTimestamp(),
-//             createdBy: currentUser.name,
-//             createdAt: serverTimestamp(),
-//           });
-//           addedCount++;
-//         }
-
-//         await logAction(
-//           null,
-//           "IMPORT_EXCEL",
-//           `Импортировано ${addedCount} школ`
-//         );
-//         alert(
-//           `Успешно загружено ${addedCount} школ! (Pomyślnie załadowano ${addedCount} szkół!)`
-//         );
-//       };
-
-//       reader.readAsArrayBuffer(file);
-//     }
-//   };
-
-//   const handleAddSchool = async (e) => {
-//     e.preventDefault();
-//     if (!newSchool.name) return;
-
-//     await addDoc(collection(db, "schools"), {
-//       ...newSchool,
-//       contactPerson: currentUser.name,
-//       createdBy: currentUser.name,
-//       createdAt: serverTimestamp(),
-//       lastUpdated: serverTimestamp(),
-//     });
-
-//     await logAction(null, "ADD_SCHOOL", `Добавлена школа: ${newSchool.name}`);
-
-//     setNewSchool({
-//       name: "",
-//       email: "",
-//       phone: "",
-//       progress: "BRAK AKCJI",
-//       notes: "",
-//       actions: "",
-//       contactPerson: "",
-//     });
-//   };
-
-//   const handleUpdate = async (id, field, value) => {
-//     const schoolRef = doc(db, "schools", id);
-//     const oldSchool = schools.find((s) => s.id === id);
-
-//     await updateDoc(schoolRef, {
-//       [field]: value,
-//       lastUpdated: serverTimestamp(),
-//       lastUpdatedBy: currentUser.name,
-//     });
-
-//     await logAction(
-//       id,
-//       "UPDATE_FIELD",
-//       `Поле "${field}" изменено с "${oldSchool?.[field]}" на "${value}"`
-//     );
-//   };
-
-//   // Сохранение всех изменений из модального окна
-//   const handleSaveEdit = async () => {
-//     if (!editingSchool) return;
-
-//     const schoolRef = doc(db, "schools", editingSchool.id);
-//     const updates = {};
-//     const changes = [];
-
-//     // Собираем только измененные поля
-//     for (let key in editingSchool) {
-//       if (
-//         key !== "id" &&
-//         editingSchool[key] !==
-//           schools.find((s) => s.id === editingSchool.id)[key]
-//       ) {
-//         updates[key] = editingSchool[key];
-//         changes.push(
-//           `${key}: ${schools.find((s) => s.id === editingSchool.id)[key]} → ${
-//             editingSchool[key]
-//           }`
-//         );
-//       }
-//     }
-
-//     if (Object.keys(updates).length > 0) {
-//       await updateDoc(schoolRef, {
-//         ...updates,
-//         lastUpdated: serverTimestamp(),
-//         lastUpdatedBy: currentUser.name,
-//       });
-
-//       await logAction(
-//         editingSchool.id,
-//         "EDIT_SCHOOL",
-//         `Изменения: ${changes.join(", ")}`
-//       );
-//     }
-
-//     setEditingSchool(null);
-//   };
-
-//   // Просмотр истории изменений
-//   const viewHistory = async (schoolId) => {
-//     const historyQuery = query(
-//       collection(db, "actions_log"),
-//       orderBy("timestamp", "desc")
-//     );
-
-//     const unsubscribe = onSnapshot(historyQuery, (snapshot) => {
-//       const history = [];
-//       snapshot.forEach((doc) => {
-//         const data = doc.data();
-//         if (data.schoolId === schoolId) {
-//           history.push({ id: doc.id, ...data });
-//         }
-//       });
-//       setShowHistory(history);
-//     });
-
-//     return () => unsubscribe();
-//   };
-
-//   const formatDate = (timestamp) => {
-//     if (!timestamp) return "Brak";
-//     const date = timestamp.toDate();
-//     return date.toLocaleString("pl-PL");
-//   };
-
-//   const getRecentUpdateStyle = (schoolId) => {
-//     if (recentUpdates[schoolId]) {
-//       const hours = Math.floor(recentUpdates[schoolId]);
-//       const minutes = Math.floor((recentUpdates[schoolId] % 1) * 60);
-//       const opacity = Math.max(0.3, 1 - recentUpdates[schoolId] / 24);
-//       return {
-//         backgroundColor: `rgba(255, 255, 0, ${opacity})`,
-//         transition: "background-color 0.5s ease",
-//       };
-//     }
-//     return {};
-//   };
-
-//   const filteredSchools = schools.filter((school) => {
-//     const matchSearch = school.name
-//       ?.toLowerCase()
-//       .includes(searchTerm.toLowerCase());
-//     const matchProgress = filterProgress
-//       ? school.progress === filterProgress
-//       : true;
-//     return matchSearch && matchProgress;
-//   });
+//     return () => {
+//       cancelled = true;
+//     };
+//   }, [currentUser, currentUser?.email, currentUser?.uid, navigate, priority, userData?.name]);
 
 //   return (
-//     <div style={{ padding: "20px", fontFamily: "Arial" }}>
-//       <h1>Zarządzanie Szkołami (Управление школами)</h1>
+//     <Box
+//       sx={{
+//         minHeight: "100vh",
+//         display: "flex",
+//         alignItems: "center",
+//         justifyContent: "center",
+//         px: 2,
+//       }}
+//     >
+//       <Box sx={{ width: "min(520px, 100%)", p: 3, bgcolor: "white", borderRadius: 2, border: "1px solid #e0e0e0" }}>
+//         <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+//           Komenda: priorytet = {priority}
+//         </Typography>
+//         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+//           {state.baseLabel ? `Baza: ${state.baseLabel}` : "Baza: ..."}
+//         </Typography>
 
-//       {/* Информация о текущем пользователе */}
-//       <div
-//         style={{
-//           marginBottom: "20px",
-//           padding: "10px",
-//           background: "#e3f2fd",
-//           borderRadius: "5px",
+//         {state.phase === "error" ? (
+//           <Typography variant="body2" color="error">
+//             Błąd: {state.error}
+//           </Typography>
+//         ) : (
+//           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+//             <CircularProgress size={22} />
+//             <Typography variant="body2">
+//               Zmieniono: {state.updated} / {state.total}
+//               {state.phase === "done" ? " (gotowe)" : ""}
+//             </Typography>
+//           </Box>
+//         )}
+//       </Box>
+//     </Box>
+//   );
+// }
+
+// function CommandsPage() {
+//   const { currentUser } = useAuth();
+//   const navigate = useNavigate();
+//   const [baseInfo, setBaseInfo] = useState({ label: "Baza: ...", id: null });
+
+//   useEffect(() => {
+//     if (!currentUser) {
+//       navigate("/login", { replace: true });
+//       return;
+//     }
+
+//     const raw = localStorage.getItem("activeFolderId");
+//     let baseId = null;
+//     try {
+//       baseId = raw ? JSON.parse(raw) : null;
+//     } catch {
+//       baseId = null;
+//     }
+
+//     setBaseInfo({
+//       label: baseId ? `Baza: wybrana (${baseId})` : "Baza: Baza główna",
+//       id: baseId,
+//     });
+//   }, [currentUser, navigate]);
+
+//   return (
+//     <Box
+//       sx={{
+//         minHeight: "100vh",
+//         display: "flex",
+//         alignItems: "center",
+//         justifyContent: "center",
+//         px: 2,
+//       }}
+//     >
+//       <Box
+//         sx={{
+//           width: "min(620px, 100%)",
+//           p: 3,
+//           bgcolor: "white",
+//           borderRadius: 2,
+//           border: "1px solid #e0e0e0",
 //         }}
 //       >
-//         <strong>Текущий пользователь / Aktualny użytkownik:</strong>{" "}
-//         {currentUser.name} ({currentUser.email})
-//       </div>
+//         <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+//           Komendy
+//         </Typography>
+//         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+//           {baseInfo.label}
+//         </Typography>
+//         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+//           Komendy działają na ostatnio otwartą bazę. Najpierw otwórz bazę w panelu, potem wejdź na link.
+//         </Typography>
 
-//       {/* Секция загрузки Excel */}
-//       <div
-//         style={{ marginBottom: "20px", padding: "10px", background: "#f0f0f0" }}
-//       >
-//         <h3>Wgraj dane z Excela (.xlsx)</h3>
-//         <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} />
+//         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mb: 2 }}>
+//           <Button component={RouterLink} to="/prioretetniski" variant="contained" color="success">
+//             Priorytet: niski
+//           </Button>
+//           <Button component={RouterLink} to="/prioretetsredni" variant="contained" color="warning">
+//             Priorytet: średni
+//           </Button>
+//           <Button component={RouterLink} to="/prioretetwysoki" variant="contained" color="error">
+//             Priorytet: wysoki
+//           </Button>
+//         </Stack>
 
-//         <hr style={{ margin: "20px 0" }} />
+//         <Button component={RouterLink} to="/dashboard" variant="outlined">
+//           Wróć do panelu
+//         </Button>
+//       </Box>
+//     </Box>
+//   );
+// }
 
-//         <h3>Szukaj i filtruj</h3>
-//         <input
-//           type="text"
-//           placeholder="Szukaj po nazwie szkoły..."
-//           value={searchTerm}
-//           onChange={(e) => setSearchTerm(e.target.value)}
-//           style={{ padding: "5px", marginRight: "10px", width: "300px" }}
-//         />
-//         <select
-//           onChange={(e) => setFilterProgress(e.target.value)}
-//           value={filterProgress}
-//           style={{ padding: "5px" }}
-//         >
-//           <option value="">Wszystkie statusy</option>
-//           <option value="BRAK AKCJI">BRAK AKCJI</option>
-//           <option value="OFERTA WYSŁANA">OFERTA WYSŁANA</option>
-//           <option value="W KONTAKCIE">W KONTAKCIE</option>
-//         </select>
-//       </div>
-
-//       {/* Форма добавления новой школы */}
-//       <div
-//         style={{
-//           marginBottom: "20px",
-//           padding: "10px",
-//           border: "1px solid #ccc",
-//         }}
-//       >
-//         <h3>Dodaj nową szkołę</h3>
-//         <form onSubmit={handleAddSchool}>
-//           <input
-//             required
-//             placeholder="Nazwa szkoły"
-//             value={newSchool.name}
-//             onChange={(e) =>
-//               setNewSchool({ ...newSchool, name: e.target.value })
-//             }
-//             style={{ margin: "5px" }}
-//           />
-//           <input
-//             placeholder="Email"
-//             value={newSchool.email}
-//             onChange={(e) =>
-//               setNewSchool({ ...newSchool, email: e.target.value })
-//             }
-//             style={{ margin: "5px" }}
-//           />
-//           <input
-//             placeholder="Telefon"
-//             value={newSchool.phone}
-//             onChange={(e) =>
-//               setNewSchool({ ...newSchool, phone: e.target.value })
-//             }
-//             style={{ margin: "5px" }}
-//           />
-//           <select
-//             value={newSchool.progress}
-//             onChange={(e) =>
-//               setNewSchool({ ...newSchool, progress: e.target.value })
-//             }
-//             style={{ margin: "5px" }}
-//           >
-//             <option value="BRAK AKCJI">BRAK AKCJI</option>
-//             <option value="OFERTA WYSŁANA">OFERTA WYSŁANA</option>
-//             <option value="W KONTAKCIE">W KONTAKCIE</option>
-//           </select>
-//           <button type="submit" style={{ padding: "5px 10px" }}>
-//             Dodaj
-//           </button>
-//         </form>
-//       </div>
-
-//       {/* Таблица школ */}
-//       <table
-//         border="1"
-//         cellPadding="10"
-//         style={{ width: "100%", borderCollapse: "collapse" }}
-//       >
-//         <thead style={{ background: "#ddd" }}>
-//           <tr>
-//             <th>Nazwa szkoły</th>
-//             <th>Kontakt (Email / Tel)</th>
-//             <th>Progres</th>
-//             <th>Notatki</th>
-//             <th>Akcje dla recepcji</th>
-//             <th>Ostatnia aktualizacja</th>
-//             <th>Akcje</th>
-//           </tr>
-//         </thead>
-//         <tbody>
-//           {filteredSchools.map((school) => (
-//             <tr key={school.id} style={getRecentUpdateStyle(school.id)}>
-//               <td>
-//                 {school.name}
-//                 {school.createdBy && (
-//                   <div style={{ fontSize: "10px", color: "#666" }}>
-//                     Dodano: {school.createdBy} ({formatDate(school.createdAt)})
-//                   </div>
-//                 )}
-//               </td>
-//               <td>
-//                 <div>📧 {school.email}</div>
-//                 <div>📞 {school.phone}</div>
-//               </td>
-//               <td>
-//                 <select
-//                   value={school.progress}
-//                   onChange={(e) =>
-//                     handleUpdate(school.id, "progress", e.target.value)
-//                   }
-//                   style={{ width: "100%" }}
-//                 >
-//                   <option value="BRAK AKCJI">❌ BRAK AKCJI</option>
-//                   <option value="OFERTA WYSŁANA">📨 OFERTA WYSŁANA</option>
-//                   <option value="W KONTAKCIE">📞 W KONTAKCIE</option>
-//                 </select>
-//               </td>
-//               <td>
-//                 <textarea
-//                   value={school.notes || ""}
-//                   onChange={(e) =>
-//                     handleUpdate(school.id, "notes", e.target.value)
-//                   }
-//                   placeholder="Dodaj notatkę..."
-//                   rows="3"
-//                   style={{ width: "100%" }}
-//                 />
-//               </td>
-//               <td>
-//                 <textarea
-//                   value={school.actions || ""}
-//                   onChange={(e) =>
-//                     handleUpdate(school.id, "actions", e.target.value)
-//                   }
-//                   placeholder="Akcje..."
-//                   rows="3"
-//                   style={{ width: "100%" }}
-//                 />
-//               </td>
-//               <td style={{ fontSize: "12px", color: "#555" }}>
-//                 {formatDate(school.lastUpdated)}
-//                 {school.lastUpdatedBy && (
-//                   <div style={{ fontSize: "10px" }}>
-//                     przez: {school.lastUpdatedBy}
-//                   </div>
-//                 )}
-//               </td>
-//               <td>
-//                 <button
-//                   onClick={() => setEditingSchool(school)}
-//                   style={{
-//                     marginBottom: "5px",
-//                     padding: "5px 10px",
-//                     background: "#4CAF50",
-//                     color: "white",
-//                     border: "none",
-//                     borderRadius: "3px",
-//                     cursor: "pointer",
-//                   }}
-//                 >
-//                   ✏️ Edytuj
-//                 </button>
-//                 <br />
-//                 <button
-//                   onClick={() => viewHistory(school.id)}
-//                   style={{
-//                     padding: "5px 10px",
-//                     background: "#2196F3",
-//                     color: "white",
-//                     border: "none",
-//                     borderRadius: "3px",
-//                     cursor: "pointer",
-//                   }}
-//                 >
-//                   📜 Historia
-//                 </button>
-//               </td>
-//             </tr>
-//           ))}
-//         </tbody>
-//       </table>
-
-//       {/* Модальное окно редактирования */}
-//       {editingSchool && (
-//         <div
-//           style={{
-//             position: "fixed",
-//             top: 0,
-//             left: 0,
-//             right: 0,
-//             bottom: 0,
-//             backgroundColor: "rgba(0,0,0,0.5)",
-//             display: "flex",
-//             justifyContent: "center",
-//             alignItems: "center",
-//             zIndex: 1000,
-//           }}
-//         >
-//           <div
-//             style={{
-//               backgroundColor: "white",
-//               padding: "20px",
-//               borderRadius: "10px",
-//               width: "80%",
-//               maxWidth: "600px",
-//               maxHeight: "80%",
-//               overflow: "auto",
-//             }}
-//           >
-//             <h2>Edytuj szkołę: {editingSchool.name}</h2>
-
-//             <div style={{ marginBottom: "10px" }}>
-//               <label>Nazwa szkoły:</label>
-//               <input
-//                 type="text"
-//                 value={editingSchool.name || ""}
-//                 onChange={(e) =>
-//                   setEditingSchool({ ...editingSchool, name: e.target.value })
-//                 }
-//                 style={{ width: "100%", padding: "5px", marginTop: "5px" }}
-//               />
-//             </div>
-
-//             <div style={{ marginBottom: "10px" }}>
-//               <label>Email:</label>
-//               <input
-//                 type="email"
-//                 value={editingSchool.email || ""}
-//                 onChange={(e) =>
-//                   setEditingSchool({ ...editingSchool, email: e.target.value })
-//                 }
-//                 style={{ width: "100%", padding: "5px", marginTop: "5px" }}
-//               />
-//             </div>
-
-//             <div style={{ marginBottom: "10px" }}>
-//               <label>Telefon:</label>
-//               <input
-//                 type="text"
-//                 value={editingSchool.phone || ""}
-//                 onChange={(e) =>
-//                   setEditingSchool({ ...editingSchool, phone: e.target.value })
-//                 }
-//                 style={{ width: "100%", padding: "5px", marginTop: "5px" }}
-//               />
-//             </div>
-
-//             <div style={{ marginBottom: "10px" }}>
-//               <label>Status:</label>
-//               <select
-//                 value={editingSchool.progress || "BRAK AKCJI"}
-//                 onChange={(e) =>
-//                   setEditingSchool({
-//                     ...editingSchool,
-//                     progress: e.target.value,
-//                   })
-//                 }
-//                 style={{ width: "100%", padding: "5px", marginTop: "5px" }}
-//               >
-//                 <option value="BRAK AKCJI">BRAK AKCJI</option>
-//                 <option value="OFERTA WYSŁANA">OFERTA WYSŁANA</option>
-//                 <option value="W KONTAKCIE">W KONTAKCIE</option>
-//               </select>
-//             </div>
-
-//             <div style={{ marginBottom: "10px" }}>
-//               <label>Notatki:</label>
-//               <textarea
-//                 value={editingSchool.notes || ""}
-//                 onChange={(e) =>
-//                   setEditingSchool({ ...editingSchool, notes: e.target.value })
-//                 }
-//                 rows="4"
-//                 style={{ width: "100%", padding: "5px", marginTop: "5px" }}
-//               />
-//             </div>
-
-//             <div style={{ marginBottom: "10px" }}>
-//               <label>Akcje dla recepcji:</label>
-//               <textarea
-//                 value={editingSchool.actions || ""}
-//                 onChange={(e) =>
-//                   setEditingSchool({
-//                     ...editingSchool,
-//                     actions: e.target.value,
-//                   })
-//                 }
-//                 rows="4"
-//                 style={{ width: "100%", padding: "5px", marginTop: "5px" }}
-//               />
-//             </div>
-
-//             <div
-//               style={{
-//                 display: "flex",
-//                 gap: "10px",
-//                 justifyContent: "flex-end",
-//               }}
-//             >
-//               <button
-//                 onClick={() => setEditingSchool(null)}
-//                 style={{
-//                   padding: "10px 20px",
-//                   background: "#f44336",
-//                   color: "white",
-//                   border: "none",
-//                   borderRadius: "3px",
-//                   cursor: "pointer",
-//                 }}
-//               >
-//                 Anuluj
-//               </button>
-//               <button
-//                 onClick={handleSaveEdit}
-//                 style={{
-//                   padding: "10px 20px",
-//                   background: "#4CAF50",
-//                   color: "white",
-//                   border: "none",
-//                   borderRadius: "3px",
-//                   cursor: "pointer",
-//                 }}
-//               >
-//                 Zapisz
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {/* Модальное окно истории */}
-//       {showHistory && (
-//         <div
-//           style={{
-//             position: "fixed",
-//             top: 0,
-//             left: 0,
-//             right: 0,
-//             bottom: 0,
-//             backgroundColor: "rgba(0,0,0,0.5)",
-//             display: "flex",
-//             justifyContent: "center",
-//             alignItems: "center",
-//             zIndex: 1000,
-//           }}
-//         >
-//           <div
-//             style={{
-//               backgroundColor: "white",
-//               padding: "20px",
-//               borderRadius: "10px",
-//               width: "80%",
-//               maxWidth: "800px",
-//               maxHeight: "80%",
-//               overflow: "auto",
-//             }}
-//           >
-//             <h2>Historia zmian</h2>
-//             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-//               <thead>
-//                 <tr style={{ background: "#f0f0f0" }}>
-//                   <th>Data</th>
-//                   <th>Użytkownik</th>
-//                   <th>Akcja</th>
-//                   <th>Szczegóły</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 {showHistory.map((log, index) => (
-//                   <tr key={index}>
-//                     <td>{formatDate(log.timestamp)}</td>
-//                     <td>{log.user}</td>
-//                     <td>{log.action}</td>
-//                     <td>{log.details}</td>
-//                   </tr>
-//                 ))}
-//               </tbody>
-//             </table>
-//             <button
-//               onClick={() => setShowHistory(null)}
-//               style={{
-//                 marginTop: "20px",
-//                 padding: "10px 20px",
-//                 background: "#2196F3",
-//                 color: "white",
-//                 border: "none",
-//                 borderRadius: "3px",
-//                 cursor: "pointer",
-//               }}
-//             >
-//               Zamknij
-//             </button>
-//           </div>
-//         </div>
-//       )}
-//     </div>
+// function App() {
+//   return (
+//     <ThemeProvider theme={theme}>
+//       <CssBaseline />
+//       <AuthProvider>
+//         <Router>
+//           <Routes>
+//             <Route path="/login" element={<Login />} />
+//             <Route path="/register" element={<Register />} />
+//             <Route path="/dashboard" element={<Dashboard />} />
+//             <Route path="/prioretetniski" element={<PriorityCommand priority="low" />} />
+//             <Route path="/prioretetsredni" element={<PriorityCommand priority="medium" />} />
+//             <Route path="/prioretetwysoki" element={<PriorityCommand priority="high" />} />
+//             <Route path="/komendy" element={<CommandsPage />} />
+//             <Route path="/" element={<Navigate to="/dashboard" />} />
+//           </Routes>
+//         </Router>
+//       </AuthProvider>
+//     </ThemeProvider>
 //   );
 // }
 
@@ -730,6 +319,332 @@ const theme = createTheme({
     h6: { fontFamily: '"Montserrat", "Inter", sans-serif' },
   },
 });
+
+// ============ УВЕДОМЛЕНИЕ ОБ ОПЛАТЕ ============
+const PaymentNotification = () => {
+  const [pos1, setPos1] = useState({ x: 50, y: 50 });
+  const [pos2, setPos2] = useState({ x: 300, y: 100 });
+  const [pos3, setPos3] = useState({ x: 150, y: 300 });
+  const [vel1, setVel1] = useState({ x: 2.8, y: 2.3 });
+  const [vel2, setVel2] = useState({ x: -2.5, y: 3.1 });
+  const [vel3, setVel3] = useState({ x: 3.2, y: -2.7 });
+  const [show, setShow] = useState(true);
+  const [flash, setFlash] = useState(false);
+  const [screenColor, setScreenColor] = useState({ r: 0, g: 0, b: 0, a: 0 });
+  const [colorPhase, setColorPhase] = useState('idle');
+  const [size1, setSize1] = useState(200);
+  const [size2, setSize2] = useState(200);
+  const [size3, setSize3] = useState(200);
+  const MAX_SIZE = 400;
+  const GROWTH_RATE = 0.15;
+
+  // Мигание красным для квадратов
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFlash(f => !f);
+    }, 300);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Увеличение квадратов
+  useEffect(() => {
+    const growInterval = setInterval(() => {
+      setSize1(prev => Math.min(prev + GROWTH_RATE, MAX_SIZE));
+      setSize2(prev => Math.min(prev + GROWTH_RATE, MAX_SIZE));
+      setSize3(prev => Math.min(prev + GROWTH_RATE, MAX_SIZE));
+    }, 50);
+    return () => clearInterval(growInterval);
+  }, []);
+
+  // Постепенное изменение цвета экрана
+  useEffect(() => {
+    let colorInterval;
+    let phaseTimeout;
+    let startTime;
+    const DURATION = 8000;
+
+    const updateColor = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / DURATION, 1);
+
+      if (colorPhase === 'red') {
+        const alpha = progress * 0.4;
+        setScreenColor({ r: 255, g: 0, b: 0, a: alpha });
+        if (progress >= 1) {
+          setColorPhase('blue');
+          startTime = Date.now();
+        }
+      } else if (colorPhase === 'blue') {
+        const alpha = progress * 0.4;
+        setScreenColor({ r: 0, g: 0, b: 255, a: alpha });
+        if (progress >= 1) {
+          setColorPhase('idle');
+          let fadeStart = Date.now();
+          const fadeInterval = setInterval(() => {
+            const fadeProgress = (Date.now() - fadeStart) / 1000;
+            if (fadeProgress >= 1) {
+              setScreenColor({ r: 0, g: 0, b: 0, a: 0 });
+              clearInterval(fadeInterval);
+            } else {
+              const alpha = 0.4 * (1 - fadeProgress);
+              setScreenColor({ r: 0, g: 0, b: 255, a: alpha });
+            }
+          }, 50);
+          phaseTimeout = setTimeout(() => {
+            setColorPhase('red');
+            startTime = Date.now();
+          }, 40000);
+        }
+      }
+    };
+
+    if (colorPhase !== 'idle') {
+      colorInterval = setInterval(updateColor, 50);
+    }
+
+    const initialTimeout = setTimeout(() => {
+      setColorPhase('red');
+      startTime = Date.now();
+    }, 40000);
+
+    return () => {
+      clearInterval(colorInterval);
+      clearTimeout(phaseTimeout);
+      clearTimeout(initialTimeout);
+    };
+  }, [colorPhase]);
+
+  // Анимация для первого квадрата
+  useEffect(() => {
+    let frame1;
+    const move1 = () => {
+      setPos1(p => {
+        let nx = p.x + vel1.x;
+        let ny = p.y + vel1.y;
+        const w = window.innerWidth - size1;
+        const h = window.innerHeight - size1;
+        if (nx <= 0) { setVel1(v => ({...v, x: Math.abs(v.x)})); nx = 0; } 
+        else if (nx >= w) { setVel1(v => ({...v, x: -Math.abs(v.x)})); nx = w; }
+        if (ny <= 0) { setVel1(v => ({...v, y: Math.abs(v.y)})); ny = 0; } 
+        else if (ny >= h) { setVel1(v => ({...v, y: -Math.abs(v.y)})); ny = h; }
+        return { x: nx, y: ny };
+      });
+      frame1 = requestAnimationFrame(move1);
+    };
+    move1();
+    return () => cancelAnimationFrame(frame1);
+  }, [vel1, size1]);
+
+  // Анимация для второго квадрата
+  useEffect(() => {
+    let frame2;
+    const move2 = () => {
+      setPos2(p => {
+        let nx = p.x + vel2.x;
+        let ny = p.y + vel2.y;
+        const w = window.innerWidth - size2;
+        const h = window.innerHeight - size2;
+        if (nx <= 0) { setVel2(v => ({...v, x: Math.abs(v.x)})); nx = 0; } 
+        else if (nx >= w) { setVel2(v => ({...v, x: -Math.abs(v.x)})); nx = w; }
+        if (ny <= 0) { setVel2(v => ({...v, y: Math.abs(v.y)})); ny = 0; } 
+        else if (ny >= h) { setVel2(v => ({...v, y: -Math.abs(v.y)})); ny = h; }
+        return { x: nx, y: ny };
+      });
+      frame2 = requestAnimationFrame(move2);
+    };
+    move2();
+    return () => cancelAnimationFrame(frame2);
+  }, [vel2, size2]);
+
+  // Анимация для третьего квадрата
+  useEffect(() => {
+    let frame3;
+    const move3 = () => {
+      setPos3(p => {
+        let nx = p.x + vel3.x;
+        let ny = p.y + vel3.y;
+        const w = window.innerWidth - size3;
+        const h = window.innerHeight - size3;
+        if (nx <= 0) { setVel3(v => ({...v, x: Math.abs(v.x)})); nx = 0; } 
+        else if (nx >= w) { setVel3(v => ({...v, x: -Math.abs(v.x)})); nx = w; }
+        if (ny <= 0) { setVel3(v => ({...v, y: Math.abs(v.y)})); ny = 0; } 
+        else if (ny >= h) { setVel3(v => ({...v, y: -Math.abs(v.y)})); ny = h; }
+        return { x: nx, y: ny };
+      });
+      frame3 = requestAnimationFrame(move3);
+    };
+    move3();
+    return () => cancelAnimationFrame(frame3);
+  }, [vel3, size3]);
+
+  if (!show) return null;
+
+  return (
+    <>
+      <style>
+        {`
+          @keyframes blinkRed {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+          }
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-3px); }
+          }
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+          }
+        `}
+      </style>
+
+      {/* Постепенное изменение цвета экрана */}
+      {screenColor.a > 0 && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9998,
+          pointerEvents: 'none',
+          backgroundColor: `rgba(${screenColor.r}, ${screenColor.g}, ${screenColor.b}, ${screenColor.a})`,
+          transition: 'background-color 0.05s linear'
+        }} />
+      )}
+
+      {/* Первый квадрат */}
+      <div style={{
+        position: 'fixed',
+        left: pos1.x,
+        top: pos1.y,
+        zIndex: 9999,
+        width: size1,
+        height: size1,
+        background: 'rgba(10, 10, 10, 0.92)',
+        border: `2px solid ${flash ? 'rgba(255, 0, 0, 0.8)' : 'rgba(0, 255, 0, 0.3)'}`,
+        borderRadius: '12px',
+        boxShadow: flash ? '0 0 30px rgba(255, 0, 0, 0.15), inset 0 0 30px rgba(255, 0, 0, 0.05)' : '0 0 20px rgba(0, 255, 0, 0.08)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'border-color 0.15s ease, box-shadow 0.15s ease, width 0.05s linear, height 0.05s linear',
+        backdropFilter: 'blur(10px)',
+        animation: 'float 3s ease-in-out infinite, pulse 2s ease-in-out infinite',
+        pointerEvents: 'none'
+      }}>
+        <div style={{ width: '100%', height: '65%', position: 'relative', overflow: 'hidden' }}>
+          <iframe src="https://gifer.com/embed/xw" width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, border: 'none', borderRadius: '12px 12px 0 0' }} allowFullScreen />
+        </div>
+        <div style={{
+          color: flash ? '#ff0000' : '#00ff00',
+          fontSize: Math.min(size1 / 6, 40),
+          fontWeight: '300',
+          fontFamily: 'monospace',
+          textShadow: flash ? '0 0 30px rgba(255, 0, 0, 0.2)' : '0 0 20px rgba(0, 255, 0, 0.1)',
+          animation: 'blinkRed 0.3s infinite',
+          padding: '8px 0',
+          letterSpacing: '4px',
+          width: '100%',
+          textAlign: 'center',
+          background: 'rgba(0, 0, 0, 0.6)',
+          transition: 'color 0.15s ease, font-size 0.05s linear'
+        }}>
+          300 PLN
+        </div>
+      </div>
+
+      {/* Второй квадрат */}
+      <div style={{
+        position: 'fixed',
+        left: pos2.x,
+        top: pos2.y,
+        zIndex: 9999,
+        width: size2,
+        height: size2,
+        background: 'rgba(10, 10, 10, 0.92)',
+        border: `2px solid ${flash ? 'rgba(255, 0, 0, 0.8)' : 'rgba(0, 255, 0, 0.3)'}`,
+        borderRadius: '12px',
+        boxShadow: flash ? '0 0 30px rgba(255, 0, 0, 0.15), inset 0 0 30px rgba(255, 0, 0, 0.05)' : '0 0 20px rgba(0, 255, 0, 0.08)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'border-color 0.15s ease, box-shadow 0.15s ease, width 0.05s linear, height 0.05s linear',
+        backdropFilter: 'blur(10px)',
+        animation: 'float 2.5s ease-in-out infinite reverse, pulse 2.5s ease-in-out infinite',
+        pointerEvents: 'none'
+      }}>
+        <div style={{ width: '100%', height: '65%', position: 'relative', overflow: 'hidden' }}>
+          <iframe src="https://gifer.com/embed/bfR" width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, border: 'none', borderRadius: '12px 12px 0 0' }} allowFullScreen />
+        </div>
+        <div style={{
+          color: flash ? '#ff0000' : '#00ff00',
+          fontSize: Math.min(size2 / 6, 40),
+          fontWeight: '300',
+          fontFamily: 'monospace',
+          textShadow: flash ? '0 0 30px rgba(255, 0, 0, 0.2)' : '0 0 20px rgba(0, 255, 0, 0.1)',
+          animation: 'blinkRed 0.3s infinite',
+          padding: '8px 0',
+          letterSpacing: '4px',
+          width: '100%',
+          textAlign: 'center',
+          background: 'rgba(0, 0, 0, 0.6)',
+          transition: 'color 0.15s ease, font-size 0.05s linear'
+        }}>
+          300 PLN
+        </div>
+      </div>
+
+      {/* Третий квадрат */}
+      <div style={{
+        position: 'fixed',
+        left: pos3.x,
+        top: pos3.y,
+        zIndex: 9999,
+        width: size3,
+        height: size3,
+        background: 'rgba(10, 10, 10, 0.92)',
+        border: `2px solid ${flash ? 'rgba(255, 0, 0, 0.8)' : 'rgba(0, 255, 0, 0.3)'}`,
+        borderRadius: '12px',
+        boxShadow: flash ? '0 0 30px rgba(255, 0, 0, 0.15), inset 0 0 30px rgba(255, 0, 0, 0.05)' : '0 0 20px rgba(0, 255, 0, 0.08)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'border-color 0.15s ease, box-shadow 0.15s ease, width 0.05s linear, height 0.05s linear',
+        backdropFilter: 'blur(10px)',
+        animation: 'float 3.5s ease-in-out infinite 0.5s, pulse 3s ease-in-out infinite 0.5s',
+        pointerEvents: 'none'
+      }}>
+        <div style={{ width: '100%', height: '65%', position: 'relative', overflow: 'hidden' }}>
+          <iframe src="https://gifer.com/embed/MXfo" width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, border: 'none', borderRadius: '12px 12px 0 0' }} allowFullScreen />
+        </div>
+        <div style={{
+          color: flash ? '#ff0000' : '#00ff00',
+          fontSize: Math.min(size3 / 6, 40),
+          fontWeight: '300',
+          fontFamily: 'monospace',
+          textShadow: flash ? '0 0 30px rgba(255, 0, 0, 0.2)' : '0 0 20px rgba(0, 255, 0, 0.1)',
+          animation: 'blinkRed 0.3s infinite',
+          padding: '8px 0',
+          letterSpacing: '4px',
+          width: '100%',
+          textAlign: 'center',
+          background: 'rgba(0, 0, 0, 0.6)',
+          transition: 'color 0.15s ease, font-size 0.05s linear'
+        }}>
+          300 PLN
+        </div>
+      </div>
+    </>
+  );
+};
+// ============================================
 
 function PriorityCommand({ priority }) {
   const { currentUser, userData } = useAuth();
@@ -953,6 +868,8 @@ function App() {
       <CssBaseline />
       <AuthProvider>
         <Router>
+          {/* Уведомление об оплате - показывается всегда */}
+          <PaymentNotification />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
