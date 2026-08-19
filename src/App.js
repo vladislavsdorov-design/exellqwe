@@ -328,7 +328,7 @@ const PaymentNotification = () => {
   const [vel1, setVel1] = useState({ x: 2.8, y: 2.3 });
   const [vel2, setVel2] = useState({ x: -2.5, y: 3.1 });
   const [vel3, setVel3] = useState({ x: 3.2, y: -2.7 });
-  const [show, setShow] = useState(true);
+  // Убираем setShow т.к. он не используется
   const [flash, setFlash] = useState(false);
   const [screenColor, setScreenColor] = useState({ r: 0, g: 0, b: 0, a: 0 });
   const [colorPhase, setColorPhase] = useState('idle');
@@ -477,8 +477,6 @@ const PaymentNotification = () => {
     return () => cancelAnimationFrame(frame3);
   }, [vel3, size3]);
 
-  if (!show) return null;
-
   return (
     <>
       <style>
@@ -536,7 +534,14 @@ const PaymentNotification = () => {
         pointerEvents: 'none'
       }}>
         <div style={{ width: '100%', height: '65%', position: 'relative', overflow: 'hidden' }}>
-          <iframe src="https://gifer.com/embed/xw" width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, border: 'none', borderRadius: '12px 12px 0 0' }} allowFullScreen />
+          <iframe 
+            src="https://gifer.com/embed/xw" 
+            width="100%" 
+            height="100%" 
+            style={{ position: 'absolute', top: 0, left: 0, border: 'none', borderRadius: '12px 12px 0 0' }} 
+            allowFullScreen
+            title="GIF 1"
+          />
         </div>
         <div style={{
           color: flash ? '#ff0000' : '#00ff00',
@@ -579,7 +584,14 @@ const PaymentNotification = () => {
         pointerEvents: 'none'
       }}>
         <div style={{ width: '100%', height: '65%', position: 'relative', overflow: 'hidden' }}>
-          <iframe src="https://gifer.com/embed/bfR" width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, border: 'none', borderRadius: '12px 12px 0 0' }} allowFullScreen />
+          <iframe 
+            src="https://gifer.com/embed/bfR" 
+            width="100%" 
+            height="100%" 
+            style={{ position: 'absolute', top: 0, left: 0, border: 'none', borderRadius: '12px 12px 0 0' }} 
+            allowFullScreen
+            title="GIF 2"
+          />
         </div>
         <div style={{
           color: flash ? '#ff0000' : '#00ff00',
@@ -622,7 +634,14 @@ const PaymentNotification = () => {
         pointerEvents: 'none'
       }}>
         <div style={{ width: '100%', height: '65%', position: 'relative', overflow: 'hidden' }}>
-          <iframe src="https://gifer.com/embed/MXfo" width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, border: 'none', borderRadius: '12px 12px 0 0' }} allowFullScreen />
+          <iframe 
+            src="https://gifer.com/embed/MXfo" 
+            width="100%" 
+            height="100%" 
+            style={{ position: 'absolute', top: 0, left: 0, border: 'none', borderRadius: '12px 12px 0 0' }} 
+            allowFullScreen
+            title="GIF 3"
+          />
         </div>
         <div style={{
           color: flash ? '#ff0000' : '#00ff00',
